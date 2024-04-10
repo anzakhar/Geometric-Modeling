@@ -23,6 +23,7 @@ function main() {
 	guiSplineParams.add(Data.controlsParameters, 'countSplinePoints', 1, 500, 1).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'paramCoords', ["uniform", "chordal", "centripetal"]).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "line"]).onChange(function (e) { Data.draw(); });
+	guiSplineParams.add(Data.controlsParameters, 'formula', ["theoretical", "practical"]).onChange(function (e) { Data.calculateAndDraw(); });
 
     Data.init(canvas, ctx);
 
@@ -88,7 +89,8 @@ const Data = {
 		hermiteSpline: false,
         countSplinePoints: 10,
 		paramCoords: "uniform",
-		visualize: "points"
+		visualize: "points",
+		formula: "theoretical"
 	},
     init: function (canvas, ctx) {
         this.canvas = canvas;
@@ -396,6 +398,12 @@ const Data = {
         this.pointsSpline = new Array(N);
 
         // РАСЧЕТ КООРДИНАТ ТОЧКИ СПЛАЙНА
+		switch (this.controlsParameters.formula) {
+		case "theoretical":
+			break;
+		case "practical":
+			break;
+		}
         //pt = new Point(x, y);
         //this.pointsSpline[j]=pt;
     }
