@@ -67,6 +67,22 @@ const Curves = {
         return 5*t*(0.2969*0.5*(x ** (-0.5)) - 0.1260 - 0.3516*2*x + 0.2843*3*(x**2) - 0.1015*4*(x**3));
     },
     c1: function (u, pt) {
+        const t = 0.15;
+        let x, y;
+        if (u < 0.5) {
+            x = 2*u;
+            y = this.yt(x, t);
+        }
+        else {
+            x = 2*(1-u);
+            y = -this.yt(x, t);
+        }
+
+        pt.x = x - 0.5;
+        pt.y = y;
+        pt.z = 0.5;
+    },
+    c2: function (u, pt) {
         const t = 0.3;
         let x, y;
         if (u < 0.5) {
@@ -82,22 +98,6 @@ const Curves = {
         pt.y = y;
         pt.z = -0.5;
     },
-    c2: function (u, pt) {
-        const t = 0.15;
-        let x, y;
-        if (u < 0.5) {
-            x = 2*u;
-            y = this.yt(x, t);
-        }
-        else {
-            x = 2*(1-u);
-            y = -this.yt(x, t);
-        }
-
-        pt.x = x - 0.5;
-        pt.y = y;
-        pt.z = 0.5;
-    }
 }
 
 const Data = {
