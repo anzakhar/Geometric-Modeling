@@ -217,8 +217,8 @@ const Camera = {
         const transform_y = glMatrix.glMatrix.toRadian(y / 16.0);
         const transform_x = glMatrix.glMatrix.toRadian(x / 16.0);
 		this.initValues();
-		this.rotateHorizontal(transform_x);
 		this.rotateVertical(transform_y);
+		this.rotateHorizontal(transform_x);
 		//console.log("x0 = ", this.x0, "  y0 = ", this.y0, "  z0 = ", this.z0);
 		//console.log("x_ref = ", this.x_ref, "  y_ref = ", this.y_ref, "  z_ref = ", this.z_ref);
 		//console.log("Vx = ", this.Vx, "  Vy = ", this.Vy, "  Vz = ", this.Vz);
@@ -506,7 +506,7 @@ const Data = {
         return 5*t*(0.2969*Math.sqrt(x) - 0.1260*x - 0.3516*(x**2) + 0.2843*(x**3) - 0.1015*(x**4));
     },
     yt_x: function(x, t) {	
-        //ВЕРНУТЬ ПРОИЗВОДНУЮ dyt/dx
+        return 5*t*(0.2969*0.5*(x ** (-0.5)) - 0.1260 - 0.3516*2*x + 0.2843*3*(x**2) - 0.1015*4*(x**3));
     },
     c1: function (u, pt) {
         const t = 0.15;
@@ -524,18 +524,33 @@ const Data = {
         pt.y = y;
         pt.z = 0.5;
     },
-    c1_u: function (u, pt) {
-        // //РАССЧИТАТЬ ПРОИЗВОДНУЮ dc1/du
-		// if ((u == 0) || (u == 1)) {
-			// pt.x = 0;
-			// pt.y = 1;
-			// pt.z = 0;
-		// }
-		// else {
-			// pt.x = x_u;
-			// pt.y = y_u;
-			// pt.z = 0;
-		// }
+    c1_t: function (u, pt) {
+        const t = 0.15;
+        let x, y;
+        let x_u, y_u;
+        if (u < 0.5) {
+            x = 2*u;
+            x_u = 2;
+            y_u = this.yt_x(x, t) * x_u;
+        }
+        else {
+            x = 2*(1-u);
+            y = -this.yt(x, t);
+
+            x_u = -2;
+            y_u = -this.yt_x(x, t) * x_u;
+        }
+		
+		if ((u == 0) || (u == 1)) {
+			pt.x = 0;
+			pt.y = 1;
+			pt.z = 0;
+		}
+		else {
+			pt.x = x_u;
+			pt.y = y_u;
+			pt.z = 0;
+		}
     },
     c2: function (u, pt) {
         const t = 0.3;
@@ -553,18 +568,33 @@ const Data = {
         pt.y = y;
         pt.z = -0.5;
     },
-    c2_u: function (u, pt) {
-        // //РАССЧИТАТЬ ПРОИЗВОДНУЮ dc2/du
-		// if ((u == 0) || (u == 1)) {
-			// pt.x = 0;
-			// pt.y = 1;
-			// pt.z = 0;
-		// }
-		// else {
-			// pt.x = x_u;
-			// pt.y = y_u;
-			// pt.z = 0;
-		// }
+    c2_t: function (u, pt) {
+        const t = 0.3;
+        let x, y;
+        let x_u, y_u;
+        if (u < 0.5) {
+            x = 2*u;
+            x_u = 2;
+            y_u = this.yt_x(x, t) * x_u;
+        }
+        else {
+            x = 2*(1-u);
+            y = -this.yt(x, t);
+
+            x_u = -2;
+            y_u = -this.yt_x(x, t) * x_u;
+        }
+
+		if ((u == 0) || (u == 1)) {
+			pt.x = 0;
+			pt.y = 1;
+			pt.z = 0;
+		}
+		else {
+			pt.x = x_u;
+			pt.y = y_u;
+			pt.z = 0;
+		}
     },
     generateBoundaryCurves: function (n) {
 
@@ -1120,47 +1150,52 @@ const Data = {
 
         const pt1_t = new Point();
         const pt2_t = new Point();
-		
-		const pt1_u = new Point();
-        const pt2_u = new Point();
 
-        //// ДОБАВИТЬ КОД РАСЧЕТА ТОЧЕК ЛИНЕЙЧАТОЙ ПОВЕРХНОСТИ
-        //for (i = 0; i < N; i++) {
-        //    for (j = 0; j < M; j++) {
-        //        this.c1(u, pt1);
-        //        this.c2(u, pt2);
+        const dt = 1 / (N - 1);
+        const dtau = 1 / (M - 1);
+        //// �������� ��� ������� ����� ���������� �����������
+        for (i = 0; i < N; i++) {
+            t = i*dt;
 
-        //        const x = ;
-        //        const y = ;
-        //        const z = ;
+            for (j = 0; j < M; j++) {
+				tau = j*dtau;
+				
+                this.c1(t, pt1);
+                this.c2(t, pt2);
 
-        //        pt = new Point(x, y, z);
-        //        this.pointsSurface[i][j] = pt;
+                const x = (1 - tau) * pt1.x + tau * pt2.x;
+                const y = (1 - tau) * pt1.y + tau * pt2.y;
+                const z = (1 - tau) * pt1.z + tau * pt2.z;
 
-        //        //calculate tangent vectors
-        //        this.c1_u(u, pt1_u);
-        //        this.c2_u(u, pt2_u);
-        
-        //        const x_u = ;
-        //        const y_u = ;
-        //        const z_u = ;
-                  
-        //        const x_v = ;
-        //        const y_v = ;
-        //        const z_v = ;
-                  
-        //        const pt_u = vec3.fromValues(x_u, y_u, z_u);
-        //        const pt_v = vec3.fromValues(x_v, y_v, z_v);
-                  
-        //        //CALCULATE NORMAL VECTOR
-        //        const normal = vec3.create();
-                  
-				// let k = 0.07;
-                // this.normalsSurface[i][j][0] = k * normal[0];
-                // this.normalsSurface[i][j][1] = k * normal[1];
-                // this.normalsSurface[i][j][2] = k * normal[2];
-        //    }
-        //}
+                const pt = new Point(x, y, z);
+                this.pointsSurface[i][j] = pt;
+
+                //calculate tangent vectors
+                this.c1_t(t, pt1_t);
+                this.c2_t(t, pt2_t);
+
+                const x_t = (1 - tau) * pt1_t.x + tau * pt2_t.x;
+                const y_t = (1 - tau) * pt1_t.y + tau * pt2_t.y;
+                const z_t = (1 - tau) * pt1_t.z + tau * pt2_t.z;
+
+                const x_tau = pt2.x - pt1.x;
+                const y_tau = pt2.y - pt1.y;
+                const z_tau = pt2.z - pt1.z;
+
+                vec3.set(pt_t, x_t, y_t, z_t);
+                vec3.set(pt_tau, x_tau, y_tau, z_tau);
+
+                //calculate normal vector
+                vec3.cross(normal, pt_t, pt_tau);
+                vec3.normalize(normal, normal);
+				let k = 0.07;
+                this.normalsSurface[i][j][0] = k * normal[0];
+                this.normalsSurface[i][j][1] = k * normal[1];
+                this.normalsSurface[i][j][2] = k * normal[2];
+
+                
+            }
+        }
 
 		this.create_coord_tip("normals", this.heighTip, N, M);
         this.create_indexes_tip("normals", N, M);
