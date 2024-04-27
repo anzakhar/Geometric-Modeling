@@ -384,8 +384,6 @@ const Data = {
     iMove: -1,
     jMove: -1,
     leftButtonDown: false,
-    N_ctr: 0,
-    M_ctr: 0,
     Xmid: 0.0,
     Ymid: 0.0,
     xRot: 0,
@@ -614,9 +612,6 @@ const Data = {
         this.gl.uniform1f(this.u_shininess, 51);
 
         this.viewport = viewport;
-
-        this.N_ctr = this.controlsParameters.N_ctr;
-        this.M_ctr = this.controlsParameters.M_ctr;
 		
 		this.lengthVector = 1.0;
         this.heighTip = 0.4 * this.lengthVector;
@@ -643,26 +638,26 @@ const Data = {
 			  Xmax = this.controlsParameters.Xmax, 
 			  Ymin = this.controlsParameters.Ymin, 
 			  Ymax = this.controlsParameters.Ymax, 
-			  Z = this.controlsParameters.Z;
-		this.N_ctr = this.controlsParameters.N_ctr,
-		this.M_ctr = this.controlsParameters.M_ctr,
-        this.pointsCtr = new Array(this.N_ctr);
-        for (let i = 0; i < this.N_ctr; i++)
-            this.pointsCtr[i] = new Array(this.M_ctr);
+			  Z = this.controlsParameters.Z,
+			  N_ctr = this.controlsParameters.N_ctr,
+			  M_ctr = this.controlsParameters.M_ctr;
+        this.pointsCtr = new Array(N_ctr);
+        for (let i = 0; i < N_ctr; i++)
+            this.pointsCtr[i] = new Array(M_ctr);
 
-        for (let i = 0; i < this.N_ctr; i++)
-            for (let j = 0; j < this.M_ctr; j++) {
-                const x = Xmin + i * (Xmax - Xmin) / (this.N_ctr - 1) - this.Xmid;
-                const y = Ymin + j * (Ymax - Ymin) / (this.M_ctr - 1) - this.Ymid;
+        for (let i = 0; i < N_ctr; i++)
+            for (let j = 0; j < M_ctr; j++) {
+                const x = Xmin + i * (Xmax - Xmin) / (N_ctr - 1) - this.Xmid;
+                const y = Ymin + j * (Ymax - Ymin) / (M_ctr - 1) - this.Ymid;
                 const z = Z * Math.sin(x) * Math.sin(y);
 
                 this.add_coords(i, j, x, y, z);
             }
 
-        this.add_vertices(this.N_ctr, this.M_ctr);
+        this.add_vertices(N_ctr, M_ctr);
         this.FSIZE = this.verticesCtr.BYTES_PER_ELEMENT;
 
-        this.createIndicesCtr(this.N_ctr, this.M_ctr);
+        this.createIndicesCtr(N_ctr, M_ctr);
         this.ISIZE = this.indicesCtr.BYTES_PER_ELEMENT;
 
         if (this.controlsParameters.lineSurfaceSpline)
@@ -884,7 +879,7 @@ const Data = {
     mousemoveHandler: function (x, y) {
         if (this.leftButtonDown) {
             if (this.movePoint) {
-                const offset = this.iMove * this.M_ctr + this.jMove;
+                const offset = this.iMove * this.controlsParameters.M_ctr + this.jMove;
                 const winCoord = vec4.create();
 
                 winCoord[0] = x;
@@ -920,14 +915,14 @@ const Data = {
             this.setVertexBuffersAndDraw();
         }
         else {
-            for (let i = 0; i < this.N_ctr; i++)
-                for (let j = 0; j < this.M_ctr; j++) {
+            for (let i = 0; i < this.controlsParameters.N_ctr; i++)
+                for (let j = 0; j < this.controlsParameters.M_ctr; j++) {
                     this.pointsCtr[i][j].select = false;
 
                     if (this.pointsCtr[i][j].ptInRect(x, y))
                         this.pointsCtr[i][j].select = true;
 
-                    this.verticesCtr[(i * this.M_ctr + j) * 4 + 3] = this.pointsCtr[i][j].select;
+                    this.verticesCtr[(i * this.controlsParameters.M_ctr + j) * 4 + 3] = this.pointsCtr[i][j].select;
 
                 }
                 this.setVertexBuffersAndDraw();
@@ -938,8 +933,8 @@ const Data = {
             case 0: //left button
                 this.movePoint = false;
 
-                for (let i = 0; i < this.N_ctr; i++)
-                    for (let j = 0; j < this.M_ctr; j++) {
+                for (let i = 0; i < this.controlsParameters.N_ctr; i++)
+                    for (let j = 0; j < this.controlsParameters.M_ctr; j++) {
                         if (this.pointsCtr[i][j].select == true) {
                             this.movePoint = true;
                             this.iMove = i;
@@ -988,6 +983,9 @@ const Data = {
     setVertexBuffersAndDraw: function () {
         let i, j;
         let q, rotateMatrix, translateMatrix, transformMatrix, axesTransformMatrix;
+		
+		const N_ctr = this.controlsParameters.N_ctr;
+		const M_ctr = this.controlsParameters.M_ctr;
         
         this.cam = Camera.getLookAt(this.wheelDelta, this.xRot, this.yRot);
         this.proj = Camera.getProjMatrix();
@@ -1115,13 +1113,13 @@ const Data = {
         this.gl.uniform1f(this.u_pointSize, 7.0);
         this.gl.uniform1f(this.u_pointSizeSelect, 10.0);
 
-        for (i = 0; i < this.N_ctr; i++)
-            for (j = 0; j < this.M_ctr; j++)
+        for (i = 0; i < N_ctr; i++)
+            for (j = 0; j < M_ctr; j++)
                 this.pointsCtr[i][j].calculateWindowCoordinates(mvpMatr, this.viewport);
 
         // Draw
         if (this.controlsParameters.showCtrPoints)
-        		this.gl.drawArrays(this.gl.POINTS, 0, this.N_ctr * this.M_ctr);
+        		this.gl.drawArrays(this.gl.POINTS, 0, N_ctr * M_ctr);
         if (this.controlsParameters.controlNet) {
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBufferCtr);
             this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.indicesCtr, this.gl.DYNAMIC_DRAW);
@@ -1129,14 +1127,14 @@ const Data = {
             this.gl.uniform4f(this.u_color, 0.0, 1.0, 0.0, 1.0);
             this.gl.uniform4f(this.u_colorSelect, 0.0, 1.0, 0.0, 1.0);
 
-            for (i = 0; i < this.N_ctr; i++)
-                this.gl.drawElements(this.gl.LINE_STRIP, this.M_ctr, this.gl.UNSIGNED_SHORT, ((i * this.M_ctr) * this.ISIZE));
+            for (i = 0; i < N_ctr; i++)
+                this.gl.drawElements(this.gl.LINE_STRIP, M_ctr, this.gl.UNSIGNED_SHORT, ((i * M_ctr) * this.ISIZE));
 
             this.gl.uniform4f(this.u_color, 0.0, 0.0, 1.0, 1.0);
             this.gl.uniform4f(this.u_colorSelect, 0.0, 0.0, 1.0, 1.0);
 
-            for (j = 0; j < this.M_ctr; j++)
-                this.gl.drawElements(this.gl.LINE_STRIP, this.N_ctr, this.gl.UNSIGNED_SHORT, ((this.N_ctr * this.M_ctr + j * this.N_ctr) * this.ISIZE));
+            for (j = 0; j < M_ctr; j++)
+                this.gl.drawElements(this.gl.LINE_STRIP, N_ctr, this.gl.UNSIGNED_SHORT, ((N_ctr * M_ctr + j * N_ctr) * this.ISIZE));
         }
         if (this.controlsParameters.lineSurfaceSpline) {
 			const N = this.controlsParameters.N;
@@ -1212,6 +1210,11 @@ const Data = {
 				this.gl.disableVertexAttribArray(this.a_select);
 				// Disable the assignment to a_normal variable
 				this.gl.disableVertexAttribArray(this.a_normal);
+				// Disable the assignment to a_transformMatrix variable
+				this.gl.disableVertexAttribArray(this.a_transformMatrix);
+				this.gl.disableVertexAttribArray(this.a_transformMatrix + 1);
+				this.gl.disableVertexAttribArray(this.a_transformMatrix + 2);
+				this.gl.disableVertexAttribArray(this.a_transformMatrix + 3);
 				this.gl.drawArrays(this.gl.LINES, 0, 2 * N * M);
 			
 				this.gl.uniform1f(this.u_useTransformMatrix, true);
@@ -1259,8 +1262,8 @@ const Data = {
 
         let i, j;
 
-        const N_ctr = this.N_ctr;
-        const M_ctr = this.M_ctr;
+        const N_ctr = this.controlsParameters.N_ctr;
+        const M_ctr = this.controlsParameters.M_ctr;
         const N = this.controlsParameters.N;
         const M = this.controlsParameters.M;
 

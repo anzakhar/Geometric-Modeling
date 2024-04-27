@@ -118,8 +118,6 @@ const Data = {
     iMove: -1,
     jMove: -1,
     leftButtonDown: false,
-    N_ctr: null,
-    M_ctr: null,
     Xmid: 0.0,
     Ymid: 0.0,
     lastPosX: 0,
@@ -156,9 +154,6 @@ const Data = {
         this.scene = scene;
 		this.camera = camera;
 		this.trackballControls = trackballControls;
-
-        this.N_ctr = this.controlsParameters.N_ctr;
-        this.M_ctr = this.controlsParameters.M_ctr;
 		
 		this.materialSpritesCtr = new THREE.SpriteMaterial({ color: 0x000000 });
 		this.materialSelectedSpritesCtr = new THREE.SpriteMaterial({ color: 'rgb(50%,50%,0%)' });
@@ -184,28 +179,28 @@ const Data = {
 			  Xmax = this.controlsParameters.Xmax, 
 			  Ymin = this.controlsParameters.Ymin, 
 			  Ymax = this.controlsParameters.Ymax, 
-			  Z = this.controlsParameters.Z;
-		this.N_ctr = this.controlsParameters.N_ctr,
-		this.M_ctr = this.controlsParameters.M_ctr,
-        this.pointsCtr = new Array(this.N_ctr);
-        this.spritesCtr = new Array(this.N_ctr);
-        for (let i = 0; i < this.N_ctr; i++) {
-            this.pointsCtr[i] = new Array(this.M_ctr);
-			this.spritesCtr[i] = new Array(this.M_ctr);
+			  Z = this.controlsParameters.Z,
+			  N_ctr = this.controlsParameters.N_ctr,
+			  M_ctr = this.controlsParameters.M_ctr;
+        this.pointsCtr = new Array(N_ctr);
+        this.spritesCtr = new Array(N_ctr);
+        for (let i = 0; i < N_ctr; i++) {
+            this.pointsCtr[i] = new Array(M_ctr);
+			this.spritesCtr[i] = new Array(M_ctr);
 		}
 
-        for (let i = 0; i < this.N_ctr; i++)
-            for (let j = 0; j < this.M_ctr; j++) {
-                const x = Xmin + i * (Xmax - Xmin) / (this.N_ctr - 1) - this.Xmid;
-                const y = Ymin + j * (Ymax - Ymin) / (this.M_ctr - 1) - this.Ymid;
+        for (let i = 0; i < N_ctr; i++)
+            for (let j = 0; j < M_ctr; j++) {
+                const x = Xmin + i * (Xmax - Xmin) / (N_ctr - 1) - this.Xmid;
+                const y = Ymin + j * (Ymax - Ymin) / (M_ctr - 1) - this.Ymid;
                 const z = Z * Math.sin(x) * Math.sin(y);
 
                 this.add_coords(i, j, x, y, z);
             }
 
-        this.add_vertices(this.N_ctr, this.M_ctr);
+        this.add_vertices(N_ctr, M_ctr);
 
-        this.createIndicesCtr(this.N_ctr, this.M_ctr);
+        this.createIndicesCtr(N_ctr, M_ctr);
 
         if (this.controlsParameters.lineSurfaceSpline)
             this.calculateLineSurfaceSpline();
@@ -244,7 +239,7 @@ const Data = {
     mousemoveHandler: function (x, y) {
         if (this.leftButtonDown) {
             if (this.movePoint) {
-                const offset = this.iMove * this.M_ctr + this.jMove;
+                const offset = this.iMove * this.controlsParameters.M_ctr + this.jMove;
 				
 				const vector = new THREE.Vector3();
 				
@@ -273,8 +268,8 @@ const Data = {
         }
         else {
 			this.trackballControls.enabled = true;
-            for (let i = 0; i < this.N_ctr; i++)
-                for (let j = 0; j < this.M_ctr; j++) {
+            for (let i = 0; i < this.controlsParameters.N_ctr; i++)
+                for (let j = 0; j < this.controlsParameters.M_ctr; j++) {
                     this.pointsCtr[i][j].select = false;
 					this.pointsCtr[i][j].calculateWindowCoordinates(this.spritesCtr[i][j], this.camera);
 
@@ -290,8 +285,8 @@ const Data = {
         if (button == 0) { //left button
 			this.movePoint = false;
 
-			for (let i = 0; i < this.N_ctr; i++)
-				for (let j = 0; j < this.M_ctr; j++) {
+			for (let i = 0; i < this.controlsParameters.N_ctr; i++)
+				for (let j = 0; j < this.controlsParameters.M_ctr; j++) {
 					if (this.pointsCtr[i][j].select == true) {
 						this.movePoint = true;
 						this.iMove = i;
@@ -330,8 +325,8 @@ const Data = {
 
         // Draw
         if (this.controlsParameters.showCtrPoints)
-			for (let i = 0; i < this.N_ctr; i++)
-				for (let j = 0; j < this.M_ctr; j++) {
+			for (let i = 0; i < this.controlsParameters.N_ctr; i++)
+				for (let j = 0; j < this.controlsParameters.M_ctr; j++) {
 					if (this.pointsCtr[i][j].select)
 						this.spritesCtr[i][j] = new THREE.Sprite(this.materialSelectedSpritesCtr);
 					else
@@ -368,8 +363,8 @@ const Data = {
 
         let i, j;
 
-        const N_ctr = this.N_ctr;
-        const M_ctr = this.M_ctr;
+        const N_ctr = this.controlsParameters.N_ctr;
+        const M_ctr = this.controlsParameters.M_ctr;
 
         // INITIALIZE PARAMETRIC COORDINATES
         // for (i = 0; i < N_ctr; i++) 
