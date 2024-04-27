@@ -154,12 +154,14 @@ const Data = {
 
         // ЗАДАТЬ КОЛИЧЕСТВО КОНТРОЛЬНЫХ ТОЧЕК
         this.N_ctr = 3;
+		
         this.pointsCtr = new Array(this.N_ctr);
 		this.verticesCtr = new Float32Array(this.N_ctr * 3);
         this.createIndicesCtr(this.N_ctr);
     },
 	generateControlPoints: function () {
 
+		// ЗАДАТЬ КООРДИНАТЫ КОНТРОЛЬНЫХ ТОЧЕК
         this.add_coords(0, 1, 0);
         this.add_coords(1, 1, 1);
         this.add_coords(2, 0, 1);
