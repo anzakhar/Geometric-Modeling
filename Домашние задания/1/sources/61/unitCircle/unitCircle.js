@@ -53,8 +53,8 @@ function main() {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
 
-    const projMatrix = mat4.ortho(mat4.create(), -gl.drawingBufferWidth / 1000, gl.drawingBufferWidth / 1000, gl.drawingBufferHeight / 1000,
-        -gl.drawingBufferHeight / 1000, 0, 1);
+    const projMatrix = mat4.ortho(mat4.create(), -gl.drawingBufferWidth / 1000, gl.drawingBufferWidth / 1000, -gl.drawingBufferHeight / 1000,
+        gl.drawingBufferHeight / 1000, 0, 1);
 
     // Pass the projection matrix to the vertex shader
     const u_projMatrix = gl.getUniformLocation(gl.program, 'u_projMatrix');
