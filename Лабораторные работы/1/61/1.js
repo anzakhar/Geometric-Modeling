@@ -1,50 +1,31 @@
 // 1.js
 
-"use strict";
+// Imports.
+import {getShader} from './libs/prepShader.js';
+import {initShaders} from './libs/cuon-utils.js';
+import * as  dat from './libs/dat.gui.module.js';
+import {mat4} from './libs/dist/esm/index.js';
+import {EventUtil} from './libs/EventUtil.js';
 
-// Vertex shader program
-const VSHADER_SOURCE =
-    'attribute vec4 a_Position;\n' +
-    'attribute float a_select;\n' +
-    'uniform mat4 u_projMatrix;\n' +
-    'uniform float u_pointSize;\n' +
-    'uniform vec4 u_color;\n' +
-    'uniform vec4 u_colorSelect;\n' +
-    'varying vec4 v_color;\n' +
-    'void main() {\n' +
-    '  gl_Position = u_projMatrix * a_Position;\n' +
-    '  gl_PointSize = u_pointSize;\n' +
-    '  if (a_select != 0.0)\n' +
-    '    v_color = u_colorSelect;\n' +
-    '  else\n' +
-    '    v_color = u_color;\n' +
-    '}\n';
-
-// Fragment shader program
-const FSHADER_SOURCE =
-    'precision mediump float;\n' +
-    'varying vec4 v_color;\n' +
-    'void main() {\n' +
-    '  gl_FragColor = v_color;\n' +
-    '}\n';
-	
-const {mat2, mat3, mat4, vec2, vec3, vec4} = glMatrix;
-
-function main() {
+async function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('webgl');
 	canvas.width  = document.documentElement.clientWidth;
 	canvas.height = document.documentElement.clientHeight;
 
     // Get the rendering context for WebGL
-    const gl = getWebGLContext(canvas);
+    const gl = canvas.getContext('webgl2');
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
     }
 
+    // Read shaders and create shader program executable.
+    const vertexShader = await getShader(gl, "vertex", "Shaders/vertexShader.glsl");
+    const fragmentShader = await getShader(gl, "fragment", "Shaders/fragmentShader.glsl");
+
     // Initialize shaders
-    if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    if (!initShaders(gl, vertexShader, fragmentShader)) {
         console.log('Failed to intialize shaders.');
         return;
     }
@@ -60,24 +41,19 @@ function main() {
         return;
     }
     gl.uniformMatrix4fv(u_projMatrix, false, projMatrix);
-
-    const countSplinePoints = document.getElementById("countSplinePoints");
-    const uniform = document.getElementById("uniform");
-    const chordal = document.getElementById("chordal");
-    const centripetal = document.getElementById("centripetal");
 	
 	const gui = new dat.GUI();
 	
 	const guiCtrPointsParams = gui.addFolder('Control point parameters');
 	const guiSplineParams = gui.addFolder('Spline parameters');
 	
-	guiCtrPointsParams.add(Data.controlsParameters, 'showCtrPoints').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
-	guiCtrPointsParams.add(Data.controlsParameters, 'controlPolygon').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+	guiCtrPointsParams.add(Data.controlsParameters, 'showCtrPoints').onChange(function (e) { Data.draw(); });
+	guiCtrPointsParams.add(Data.controlsParameters, 'controlPolygon').onChange(function (e) { Data.draw(); });
 	
 	guiSplineParams.add(Data.controlsParameters, 'lineSpline').onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'countSplinePoints', 1, 500, 1).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'paramCoords', ["uniform", "chordal", "centripetal"]).onChange(function (e) { Data.calculateAndDraw(); });
-	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "line"]).onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "line"]).onChange(function (e) { Data.draw(); });
 
     Data.init(gl);
 
@@ -140,6 +116,8 @@ const Data = {
     movePoint: false,
     iMove: -1,
     leftButtonDown: false,
+    vaoCtr: null,
+    vaoSpline: null,
     controlsParameters: {
 		showCtrPoints: true,
         controlPolygon: false,
@@ -244,9 +222,6 @@ const Data = {
 
             this.setLeftButtonDown(true);
         }
-
-
-
     },
     mouseupHandler: function (button, x, y) {
         if (button == 0) //left button
@@ -270,8 +245,10 @@ const Data = {
         this.FSIZE = this.verticesCtr.BYTES_PER_ELEMENT;
     },
     setVertexBuffersAndDraw: function () {
-        if (this.pointsCtr.length == 0)
-            return;
+        // Create VAO instance
+        this.vaoCtr = this.gl.createVertexArray();
+        // Bind it so we can work on it
+        this.gl.bindVertexArray(this.vaoCtr);
 
         // Bind the buffer object to target
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferCtr);
@@ -285,6 +262,35 @@ const Data = {
         this.gl.vertexAttribPointer(this.a_select, 1, this.gl.FLOAT, false, this.FSIZE * 3, this.FSIZE * 2);
         // Enable the assignment to a_select variable
         this.gl.enableVertexAttribArray(this.a_select);
+
+        // Create VAO instance
+        this.vaoSpline = this.gl.createVertexArray();
+        // Bind it so we can work on it
+        this.gl.bindVertexArray(this.vaoSpline);
+
+        // Bind the buffer object to target
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferSpline);
+        // Write date into the buffer object
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesSpline, this.gl.DYNAMIC_DRAW);
+        // Assign the buffer object to a_Position variable
+        this.gl.vertexAttribPointer(this.a_Position, 2, this.gl.FLOAT, false, 0, 0);
+        // Enable the assignment to a_Position variable
+        this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+        this.gl.disableVertexAttribArray(this.a_select);
+
+        // Clean
+        this.gl.bindVertexArray(null);
+
+        this.draw();
+    },
+    draw: function () {
+        if (this.pointsCtr.length == 0)
+            return;
+
+        // Bind the VAO
+        this.gl.bindVertexArray(this.vaoCtr);
+
 
         // Clear <canvas>
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
@@ -301,16 +307,8 @@ const Data = {
             this.gl.drawArrays(this.gl.LINE_STRIP, 0, this.pointsCtr.length);
         }
         if (this.controlsParameters.lineSpline) {
-            // Bind the buffer object to target
-            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferSpline);
-            // Write date into the buffer object
-            this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesSpline, this.gl.DYNAMIC_DRAW);
-            // Assign the buffer object to a_Position variable
-            this.gl.vertexAttribPointer(this.a_Position, 2, this.gl.FLOAT, false, 0, 0);
-            // Enable the assignment to a_Position variable
-            this.gl.enableVertexAttribArray(this.a_Position);
-            // Disable the assignment to a_select variable
-            this.gl.disableVertexAttribArray(this.a_select);
+            // Bind the VAO
+            this.gl.bindVertexArray(this.vaoSpline);
 
             this.gl.uniform4f(this.u_color, 1.0, 0.0, 0.0, 1.0);
             this.gl.uniform1f(this.u_pointSize, 7.0);
@@ -324,6 +322,9 @@ const Data = {
 				break;
 			}
         }
+
+        // Clean
+        this.gl.bindVertexArray(null);
     },
     calculateAndDraw: function () {
 		if (this.controlsParameters.lineSpline)
@@ -398,3 +399,5 @@ function mousemove(ev, canvas) {
     //    alert('with left key');
     Data.mousemoveHandler(x - rect.left, canvas.height - (y - rect.top));
 }
+
+window.onload = main;
