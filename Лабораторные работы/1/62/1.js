@@ -1,8 +1,10 @@
 // 1.js
 
-"use strict";
+// Imports.
+import * as  dat from './libs/dat.gui.module.js';
+import {EventUtil} from './libs/EventUtil.js';
 
-function main() {
+async function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('mycanvas');
 	canvas.width  = document.documentElement.clientWidth;
@@ -10,25 +12,11 @@ function main() {
 
     // Get the rendering context for 2DCG
     const ctx = canvas.getContext('2d');
-
-    const countSplinePoints = document.getElementById("countSplinePoints");
-    const uniform = document.getElementById("uniform");
-    const chordal = document.getElementById("chordal");
-    const centripetal = document.getElementById("centripetal");
 	
 	const gui = new dat.GUI();;
 	
 	const guiCtrPointsParams = gui.addFolder('Control point parameters');
 	const guiSplineParams = gui.addFolder('Spline parameters');
-	
-	const controlsParameters = {
-		showCtrPoints: true,
-        controlPolygon: false,
-		lineSpline: false,
-        countSplinePoints: 10,
-		paramCoords: "uniform",
-		visualize: "points"
-	};
 	
 	guiCtrPointsParams.add(Data.controlsParameters, 'showCtrPoints').onChange(function (e) { Data.draw(); });
 	guiCtrPointsParams.add(Data.controlsParameters, 'controlPolygon').onChange(function (e) { Data.draw(); });
@@ -38,7 +26,7 @@ function main() {
 	guiSplineParams.add(Data.controlsParameters, 'paramCoords', ["uniform", "chordal", "centripetal"]).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "line"]).onChange(function (e) { Data.draw(); });
 
-    Data.init(canvas, ctx, controlsParameters);
+    Data.init(canvas, ctx);
 
     // Register function (event handler) to be called on a mouse press
     canvas.onclick = function (ev) { click(ev, canvas); };
@@ -270,3 +258,5 @@ function mousemove(ev, canvas) {
     //    alert('with left key');
     Data.mousemoveHandler(x - rect.left, y - rect.top);
 }
+
+window.onload = main;
