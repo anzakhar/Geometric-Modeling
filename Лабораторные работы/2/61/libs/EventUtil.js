@@ -1,4 +1,6 @@
-var EventUtil = {
+import {client} from './client.js';
+
+export const EventUtil = {
 
     addHandler: function(element, type, handler){
         if (element.addEventListener){
