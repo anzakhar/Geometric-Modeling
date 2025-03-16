@@ -1,3 +1,5 @@
+import * as THREE from './three.module.js'
+
 /**
  * Initialize the statistics domelement
  * 
@@ -69,7 +71,7 @@ function initCamera(initialPosition) {
 function initDefaultLighting(scene, initialPosition) {
     var position = (initialPosition !== undefined) ? initialPosition : new THREE.Vector3(-10, 30, 40);
     
-    var spotLight = new THREE.SpotLight(0xffffff);
+    var spotLight = new THREE.SpotLight(0xffffff, 4000);
     spotLight.position.copy(position);
     spotLight.shadow.mapSize.width = 2048;
     spotLight.shadow.mapSize.height = 2048;
@@ -646,3 +648,5 @@ function computeNormalsGroup(group) {
         group.children.forEach(function(child) {computeNormalsGroup(child)});
     }
 }
+
+export { initDefaultLighting };

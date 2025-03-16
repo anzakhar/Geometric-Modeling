@@ -1,4 +1,4 @@
-var EventUtil = {
+export const EventUtil = {
 
     addHandler: function(element, type, handler){
         if (element.addEventListener){

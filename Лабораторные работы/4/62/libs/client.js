@@ -1,8 +1,8 @@
 
-var client = function(){
+export const client = function(){
 
     //rendering engines
-    var engine = {            
+    const engine = {            
         ie: 0,
         gecko: 0,
         webkit: 0,
@@ -14,7 +14,7 @@ var client = function(){
     };
     
     //browsers
-    var browser = {
+    const browser = {
         
         //browsers
         ie: 0,
@@ -31,7 +31,7 @@ var client = function(){
 
     
     //platform/device/OS
-    var system = {
+    const system = {
         win: false,
         mac: false,
         x11: false,
@@ -51,7 +51,7 @@ var client = function(){
     };    
 
     //detect rendering engines/browsers
-    var ua = navigator.userAgent;    
+    const ua = navigator.userAgent;    
     if (window.opera){
         engine.ver = browser.ver = window.opera.version();
         engine.opera = browser.opera = parseFloat(engine.ver);
@@ -68,7 +68,7 @@ var client = function(){
             browser.safari = parseFloat(browser.ver);
         } else {
             //approximate version
-            var safariVersion = 1;
+            let safariVersion = 1;
             if (engine.webkit < 100){
                 safariVersion = 1;
             } else if (engine.webkit < 312){
@@ -104,7 +104,7 @@ var client = function(){
     
 
     //detect platform
-    var p = navigator.platform;
+    const p = navigator.platform;
     system.win = p.indexOf("Win") == 0;
     system.mac = p.indexOf("Mac") == 0;
     system.x11 = (p == "X11") || (p.indexOf("Linux") == 0);
