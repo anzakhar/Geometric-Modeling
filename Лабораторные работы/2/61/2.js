@@ -179,28 +179,14 @@ class Point {
     }
 }
 
-
 const Camera = {
-    //cartesian coordinates
-    x0: 0.0,
-    y0: 0.0,
-    z0: 0.0,
-    //spherical coordinates
-    r: 0.0,
-    theta: 0.0,
-    phi: 0.0,
-    //initial spherical coordinates
-    r_0: 0.0,
-    theta_0: 0.0,
-    phi_0: 0.0,
+    d: 0.0,
+    //initial distance
+    d0: 0.0,
     //point the viewer is looking at
-    x_ref: 0.0,
-    y_ref: 0.0,
-    z_ref: 0.0,
+	ref: vec3.create(),
     //up vector
-    Vx: 0.0,
-    Vy: 0.0,
-    Vz: 0.0,
+	up: vec4.create(),
     //view volume bounds
     xw_min: 0.0,
     xw_max: 0.0,
@@ -208,29 +194,48 @@ const Camera = {
     yw_max: 0.0,
     d_near: 0.0,
     d_far: 0.0,
-    convertFromCartesianToSpherical: function () {
-        const R = this.r + this.r_0;
-        const Theta = this.theta + this.theta_0;
-        const Phi = this.phi + this.phi_0;
-
-        this.convertFromCartesianToSphericalCoordinates(R, Theta, Phi);
-
-        this.Vx = R * Math.cos(Theta) * Math.sin(Phi);
-        this.Vy = R * Math.cos(Theta) * Math.cos(Phi);
-        this.Vz = -R * Math.sin(Theta);
-
-        this.xw_min = -R;
-        this.xw_max = R;
-        this.yw_min = -R;
-        this.yw_max = R;
+	eye: vec4.create(),
+	initValues: function (angle) {
+		const D = this.d + this.d0;
+		
+		this.eye = vec4.fromValues(0.0, 0.0, D, 0.0);
+		vec4.set(this.up, 0.0, 1.0, 0.0, 0.0);
+		
+		this.xw_min = -D;
+        this.xw_max = D;
+        this.yw_min = -D;
+        this.yw_max = D;
         this.d_near = 0.0;
-        this.d_far = 2 * R;
-    },
-    convertFromCartesianToSphericalCoordinates: function (r, theta, phi) {
-        this.x0 = r * Math.sin(theta) * Math.cos(phi);
-        this.y0 = r * Math.sin(theta) * Math.sin(phi);
-        this.z0 = r * Math.cos(theta);
-    },
+        this.d_far = 2 * D;
+	},
+	rotateHorizontal: function (angle) {
+		let rotMat = mat4.create();
+		let resEye = vec4.create();
+		mat4.fromRotation(rotMat, angle, this.up);
+		vec4.transformMat4(resEye, this.eye, rotMat);
+		this.eye = resEye;
+		//console.log("  angle = ", angle*180/Math.PI);
+	},
+	rotateVertical: function (angle) {
+		let rotMat = mat4.create();
+		let resEye = vec4.create();
+		const lookVec = vec3.create();
+		vec3.subtract(lookVec, this.eye, this.ref);
+		const axisVec = vec3.create();
+		vec3.cross(axisVec, lookVec, this.up);
+
+		mat4.fromRotation(rotMat, angle, axisVec);
+		vec4.transformMat4(resEye, this.eye, rotMat);
+		this.eye = resEye;
+		let resUp = vec4.create();
+		vec4.transformMat4(resUp, this.up, rotMat);
+		this.Vx = resUp[0];
+        this.Vy = resUp[1];
+        this.Vz = resUp[2];
+		this.up = resUp;
+		//console.log("  angle = ", angle*180/Math.PI);
+		
+	},
     normalizeAngle: function (angle) {
         let lAngle = angle;
         while (lAngle < 0)
@@ -240,16 +245,21 @@ const Camera = {
 
         return lAngle;
     },
-    getLookAt: function (r, theta, phi) {
-        this.r = r;
-        this.phi = glMatrix.toRadian(phi / 16.0);
-        this.theta = glMatrix.toRadian(theta / 16.0);
-        this.convertFromCartesianToSpherical();
+    getLookAt: function (zoom, x, y) {
+        this.d = zoom;
+        const transform_y = glMatrix.toRadian(y / 16.0);
+        const transform_x = glMatrix.toRadian(x / 16.0);
+		this.initValues();
+		this.rotateVertical(transform_y);
+		this.rotateHorizontal(transform_x);
+		//console.log("x0 = ", this.x0, "  y0 = ", this.y0, "  z0 = ", this.z0);
+		//console.log("x_ref = ", this.x_ref, "  y_ref = ", this.y_ref, "  z_ref = ", this.z_ref);
+		//console.log("Vx = ", this.Vx, "  Vy = ", this.Vy, "  Vz = ", this.Vz);
 
-        return mat4.lookAt(mat4.create(),
-            [Camera.x0, Camera.y0, Camera.z0],
-            [Camera.x_ref, Camera.y_ref, Camera.z_ref],
-            [Camera.Vx, Camera.Vy, Camera.Vz]);
+        return mat4.lookAt(mat4.create(), 
+            this.eye, 
+            this.ref, 
+            this.up);
     },
     getProjMatrix: function () {
         return mat4.ortho(mat4.create(),
@@ -563,7 +573,7 @@ const Data = {
         this.Xmid = Xmin + (Xmax - Xmin) / 2.0;
         this.Ymid = Ymin + (Ymax - Ymin) / 2.0;
 
-        Camera.r_0 = Math.sqrt(Math.pow((Xmax - Xmin) / 2.0, 2) +
+        Camera.d0 = Math.sqrt(Math.pow((Xmax - Xmin) / 2.0, 2) +
             Math.pow((Ymax - Ymin) / 2.0, 2) +
             Math.pow(Z, 2));
 
@@ -842,8 +852,8 @@ const Data = {
                 const dx = x - this.lastPosX;
                 const dy = y - this.lastPosY;
 
-                this.setXRotation(this.xRot - 8 * dy);
-                this.setYRotation(this.yRot + 8 * dx);
+            this.setXRotation(this.xRot - 8 * dx);
+            this.setYRotation(this.yRot - 8 * dy);
 
                 this.lastPosX = x;
                 this.lastPosY = y;
@@ -896,8 +906,8 @@ const Data = {
             this.setLeftButtonDown(false);
     },
     mousewheel: function (delta) {
-        const d = Camera.r_0 * (-1.) * delta / 1000.0;
-        if ((this.wheelDelta + d >= -Camera.r_0) && (this.wheelDelta + d <= Camera.r_0 * 3.0))
+        const d = Camera.d0 * (-1.) * delta / 1000.0;
+        if ((this.wheelDelta + d >= -Camera.d0) && (this.wheelDelta + d <= Camera.d0*3.0))
             this.wheelDelta += d;
 
         this.setVertexBuffersAndDraw();
@@ -926,7 +936,7 @@ const Data = {
         this.cam = Camera.getLookAt(this.wheelDelta, this.xRot, this.yRot);
         this.proj = Camera.getProjMatrix();
 
-        this.gl.uniform4f(this.u_LightPosition, Camera.x0, Camera.y0, Camera.z0, 1.0);
+        this.gl.uniform4f(this.u_LightPosition, Camera.eye[0], Camera.eye[1], Camera.eye[2], 1.0);
 
         this.gl.uniform1f(this.u_useTransformMatrix, false);
         this.gl.uniform1f(this.u_drawPolygon, false);

@@ -1133,7 +1133,7 @@ const Data = {
 }
 
 function mousedown(ev, canvas) {
-    event = EventUtil.getEvent(event);
+    ev = EventUtil.getEvent(ev);
 
     const x = ev.clientX; // x coordinate of a mouse pointer
     const y = ev.clientY; // y coordinate of a mouse pointer
@@ -1143,7 +1143,7 @@ function mousedown(ev, canvas) {
 }
 
 function mouseup(ev, canvas) {
-    event = EventUtil.getEvent(event);
+    ev = EventUtil.getEvent(ev);
 
     const x = ev.clientX; // x coordinate of a mouse pointer
     const y = ev.clientY; // y coordinate of a mouse pointer
