@@ -1,8 +1,10 @@
 // 1.js
 
-"use strict";
-	
-function main() {
+// Imports.
+import * as  dat from './libs/dat.gui.module.js';
+import {EventUtil} from './libs/EventUtil.js';
+
+async function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('mycanvas');
 	canvas.width  = document.documentElement.clientWidth;
@@ -270,3 +272,5 @@ function mousemove(ev, canvas) {
     //    alert('with left key');
     Data.mousemoveHandler(x - rect.left, y - rect.top);
 }
+
+window.onload = main;

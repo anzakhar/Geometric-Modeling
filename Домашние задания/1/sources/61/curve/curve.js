@@ -1,53 +1,31 @@
 // 3.js
-"use strict";
-// Vertex shader program
-const VSHADER_SOURCE =
-    'attribute vec4 a_Position;\n' +
-    'attribute float a_select;\n' +
-    'attribute mat4 a_transformMatrix;\n' +
-    'uniform mat4 u_projMatrix;\n' +
-    'uniform bool u_useTransformMatrix;\n' +
-    'uniform float u_pointSize;\n' +
-    'uniform vec4 u_color;\n' +
-    'uniform vec4 u_colorSelect;\n' +
-    'varying vec4 v_color;\n' +
-    'void main() {\n' +
-    '  if (u_useTransformMatrix)\n' +
-    '  gl_Position = u_projMatrix * a_transformMatrix * a_Position;\n' +
-    '  else\n' +
-    '  gl_Position = u_projMatrix * a_Position;\n' +
-    '  gl_PointSize = u_pointSize;\n' +
-    '  if (a_select != 0.0)\n' +
-    '    v_color = u_colorSelect;\n' +
-    '  else\n' +
-    '    v_color = u_color;\n' +
-    '}\n';
 
-// Fragment shader program
-const FSHADER_SOURCE =
-    'precision mediump float;\n' +
-    'varying vec4 v_color;\n' +
-    'void main() {\n' +
-    '  gl_FragColor = v_color;\n' +
-    '}\n';
-	
-const {mat2, mat3, mat4, vec2, vec3, vec4} = glMatrix;
+// Imports.
+import {getShader} from './libs/prepShader.js';
+import {initShaders} from './libs/cuon-utils.js';
+import * as  dat from './libs/dat.gui.module.js';
+import {mat2, mat3, mat4, vec2, vec3, vec4} from './libs/dist/esm/index.js';
+import {EventUtil} from './libs/EventUtil.js';
 
-function main() {
+async function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('webgl');
 	canvas.width  = document.documentElement.clientWidth;
 	canvas.height = document.documentElement.clientHeight;
 
     // Get the rendering context for WebGL
-    const gl = getWebGLContext(canvas);
+    const gl = canvas.getContext('webgl2');
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
     }
 
+    // Read shaders and create shader program executable.
+    const vertexShader = await getShader(gl, "vertex", "Shaders/vertexShader.glsl");
+    const fragmentShader = await getShader(gl, "fragment", "Shaders/fragmentShader.glsl");
+
     // Initialize shaders
-    if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    if (!initShaders(gl, vertexShader, fragmentShader)) {
         console.log('Failed to intialize shaders.');
         return;
     }
@@ -775,3 +753,5 @@ function mousemove(ev, canvas) {
     const rect = ev.target.getBoundingClientRect();
     Data.mousemoveHandler(x - rect.left, canvas.height - (y - rect.top));
 }
+
+window.onload = main;

@@ -1,0 +1,13 @@
+.canvas {
+	float: left
+}
+
+.parameters{
+	margin-left: 810px;
+	max-width: 280px;
+	position: relative;
+}
+
+#webgl {
+    display: block;
+}
