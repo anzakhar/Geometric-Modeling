@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Draw Cylindricalal surface</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body onload="main()" oncontextmenu="return false;">
+    <div class="canvas">
+        <canvas id="webgl" width="800" height="600">
+            Please use a browser that supports "canvas"
+        </canvas>
+    </div>
+    <div class="parameters">
+
+        <fieldset>
+            <legend>Control point parameters</legend>
+            <div>
+                <label for="chkShowPoints"> Show points:</label>
+                <input type="checkbox" id="chkShowPoints" checked>
+            </div>
+            <div>
+                <label for="chkControlPolygon"> Control polygon:</label>
+                <input type="checkbox" id="chkControlPolygon">
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <legend>Surface parameters:</legend>
+            <div>
+                <label for="chkCylindricalalSurface"> Cylindrical surface:</label>
+                <input type="checkbox" id="chkCylindricalalSurface">
+            </div>
+                            <div>
+                    <label for="N"> N:</label>
+                    <input type="text" id="N" value="8" maxlength="3" size="3">
+                </div>
+            <fieldset>
+                <legend>Cylindrical surface parameters:</legend>
+				<div>
+					<label for="dx"> dx:</label>
+            		<input type="text" id="dx" value="0.0" maxlength="4" size="3">
+				</div>
+            	<div>
+					<label for="dy"> dy:</label>
+            		<input type="text" id="dy" value="0.0" maxlength="4" size="3">
+				</div>
+            	<div>
+					<label for="dz"> dz:</label>
+            		<input type="text" id="dz" value="5.0" maxlength="4" size="3">
+				</div>
+				        <div>
+                    <label for="M"> M:</label>
+                    <input type="text" id="M" value="2" maxlength="3" size="3">
+                </div>
+
+
+            </fieldset>
+            <fieldset>
+                <legend>Visualize with</legend>
+                <div>
+                    <label for="chkVisualizeWithPoints"> points:</label>
+                    <input type="checkbox" id="chkVisualizeWithPoints" checked>
+                </div>
+                <div>
+                    <label for="chkVisualizeWithLines"> coordinate lines:</label>
+                    <input type="checkbox" id="chkVisualizeWithLines">
+                </div>
+                <div>
+                    <label for="chkVisualizeWithSurface"> surface:</label>
+                    <input type="checkbox" id="chkVisualizeWithSurface">
+                </div>
+                <div>
+                    <label for="alpha"> alpha:</label>
+                    <input type="text" id="alpha" value="0.6" maxlength="4" size="4">
+                </div>
+            </fieldset>
+        </fieldset>
+    </div>
+    <script src="../libs/webgl-utils.js"></script>
+    <script src="../libs/webgl-debug.js"></script>
+    <script src="../libs/cuon-utils.js"></script>
+    <script src="../libs/gl-matrix-min.js"></script>
+    <script src="../libs/client.js"></script>
+    <script src="../libs/EventUtil.js"></script>
+    <script src="cylindricalUnitCircleSurface.js"></script>
+</body>
+</html>

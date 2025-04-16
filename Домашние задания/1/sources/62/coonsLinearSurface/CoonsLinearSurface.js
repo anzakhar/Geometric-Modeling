@@ -1,5 +1,3 @@
-// 2.js
-
 // Imports.
 import * as THREE from './libs/three.module.js'
 import { TrackballControls } from './libs/TrackballControls.js';

@@ -1,6 +1,12 @@
-"use strict";
+// Imports.
+import * as THREE from './libs/three.module.js'
+import { TrackballControls } from './libs/TrackballControls.js';
+import { ParametricGeometry } from './libs/ParametricGeometry.js';
+import * as  dat from './libs/dat.gui.module.js';
+import {EventUtil} from './libs/EventUtil.js';
+import {initDefaultLighting} from './libs/util.js';
 
-function main() {
+async function main() {
 	const clock = new THREE.Clock();
 	// create a scene, that will hold all our elements such as objects, cameras and lights.
     const scene = new THREE.Scene();
@@ -22,7 +28,7 @@ function main() {
     document.addEventListener('mousedown', onDocumentMouseDown, false);
     document.addEventListener('mouseup', onDocumentMouseUp, false);	
 	
-	const trackballControls = initTrackballControls(camera, renderer);
+	const trackballControls = new TrackballControls(camera, renderer.domElement);
 
     Data.init(scene, camera, trackballControls);
 
@@ -36,7 +42,7 @@ function main() {
 	guiCircleParams.add(Data.controlsParameters, 'y0', -4, 4, 1).onChange(function (e) { Data.calculateCtrPointsAndSurface(); });
 	guiCircleParams.add(Data.controlsParameters, 'radius', 1, 5, 1).onChange(function (e) { Data.calculateCtrPointsAndSurface(); });	
 	guiCtrPointsParams.add(Data.controlsParameters, 'showCtrPoints').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
-	guiCtrPointsParams.add(Data.controlsParameters, 'controlPolygon').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+	guiCtrPointsParams.add(Data.controlsParameters, 'controlNet').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
 	
 	guiSurfaceParams.add(Data.controlsParameters, 'sectorialSurface').onChange(function (e) { Data.calculateAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'visualize', ["wireframe", "solid"]).onChange(function (e) { Data.setVertexBuffersAndDraw(); });
@@ -128,7 +134,7 @@ const Data = {
 		radius: 1,
 		showAxes: true,
 		showCtrPoints: true,
-        controlPolygon: true,
+        controlNet: true,
 		sectorialSurface: false,
 		paramCoords: "uniform",
 		visualize: "wireframe",
@@ -293,7 +299,7 @@ const Data = {
 				this.spritesCtr[i].scale.set(0.2, 0.2);
 				this.scene.add(this.spritesCtr[i]);
 			}
-        if (this.controlsParameters.controlPolygon) {
+        if (this.controlsParameters.controlNet) {
 			this.meshControlPoligons.geometry.setAttribute( 'position', new THREE.BufferAttribute( this.verticesCtr, 3 ) );
 			this.scene.add(this.meshControlPoligons);
         }
@@ -338,7 +344,7 @@ const Data = {
 				target.set( x, y, z );
 			}
 		};
-		this.geometrySurface = new THREE.ParametricGeometry(	sectorialSurface(this.pointsCtr, N_ctr), 
+		this.geometrySurface = new ParametricGeometry(	sectorialSurface(this.pointsCtr, N_ctr), 
 																	this.controlsParameters.slices, 
 																	this.controlsParameters.stacks);
     }
@@ -374,3 +380,5 @@ function onDocumentMouseMove(event) {
 
     Data.mousemoveHandler(x - rect.left, y - rect.top);
 }
+
+window.onload = main;

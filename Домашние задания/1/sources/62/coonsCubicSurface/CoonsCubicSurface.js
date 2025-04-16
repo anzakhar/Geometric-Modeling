@@ -1,5 +1,3 @@
-// 2.js
-
 // Imports.
 import * as THREE from './libs/three.module.js'
 import { TrackballControls } from './libs/TrackballControls.js';
@@ -172,6 +170,8 @@ const Data = {
 	camera: null,
 	trackballControls: null,
 	axes: null,
+    lengthVector: 0.0,
+    heighTip: 0.0,
   	controlsParameters: {
 		showAxes: true,
 		Xmin: 0.0,
@@ -911,17 +911,14 @@ const Data = {
                 for (let p = 0; p < this.controlsParameters.N_ctr; p++)
                     for (let q = 0; q < this.controlsParameters.M_ctr; q++) {
         
-                        if ((p == 0) || (p == this.controlsParameters.N_ctr - 1)) {
+                        if ((p == 0) || (p == this.controlsParameters.N_ctr - 1))
                             this.scene.add( this.coneTips10[p][q] );        
-                        }
         
-                        if ((q == 0) || (q == this.controlsParameters.M_ctr - 1)) {
+                        if ((q == 0) || (q == this.controlsParameters.M_ctr - 1))
                             this.scene.add( this.coneTips01[p][q] );   
-                        }
         
-                        if (((p == 0) || (p == this.controlsParameters.N_ctr - 1)) && ((q == 0) || (q == this.controlsParameters.M_ctr - 1))) {
-                            this.scene.add( this.coneTips11[p][q] );   
-                        }
+                        if (((p == 0) || (p == this.controlsParameters.N_ctr - 1)) && ((q == 0) || (q == this.controlsParameters.M_ctr - 1)))
+                            this.scene.add( this.coneTips11[p][q] );
                     }
             }            
         }
@@ -953,6 +950,25 @@ const Data = {
         const N_ctr = this.controlsParameters.N_ctr;
         const M_ctr = this.controlsParameters.M_ctr;
 
+        for (i = 0; i < N_ctr; i++)
+            for (j = 0; j < M_ctr; j++) {
+
+                if ((i > 0) && (i < N_ctr-1) && (j > 0) && (j < M_ctr-1))
+                                continue;
+        
+                this.m10Ctr[i][j].x = this.m10PointsCtr[i][j].x - this.pointsCtr[i][j].x;
+                this.m10Ctr[i][j].y = this.m10PointsCtr[i][j].y - this.pointsCtr[i][j].y;
+                this.m10Ctr[i][j].z = this.m10PointsCtr[i][j].z - this.pointsCtr[i][j].z;
+
+                this.m01Ctr[i][j].x = this.m01PointsCtr[i][j].x - this.pointsCtr[i][j].x;
+                this.m01Ctr[i][j].y = this.m01PointsCtr[i][j].y - this.pointsCtr[i][j].y;
+                this.m01Ctr[i][j].z = this.m01PointsCtr[i][j].z - this.pointsCtr[i][j].z;
+
+                this.m11Ctr[i][j].x = this.m11PointsCtr[i][j].x - this.pointsCtr[i][j].x;
+                this.m11Ctr[i][j].y = this.m11PointsCtr[i][j].y - this.pointsCtr[i][j].y;
+                this.m11Ctr[i][j].z = this.m11PointsCtr[i][j].z - this.pointsCtr[i][j].z;
+            }
+
         // INITIALIZE PARAMETRIC COORDINATES
         // for (i = 0; i < N_ctr; i++) 
         // {
@@ -977,7 +993,7 @@ const Data = {
         	// }
         // }
 		
-		const coonsCubicSurface = (pointsCtr, N_ctr, M_ctr) => {
+		const coonsCubicSurface = (pointsCtr, m10Ctr, m01Ctr, m11Ctr, N_ctr, M_ctr) => {
 			return function ( u, v, target ) {
 				// CALCULATE SURFACE COORDINATES
 				const x = u;
@@ -987,7 +1003,7 @@ const Data = {
 				target.set( x, y, z );
 			}
 		};
-		this.geometrySplineSurface = new ParametricGeometry(	coonsCubicSurface(this.pointsCtr, N_ctr, M_ctr), 
+		this.geometrySplineSurface = new ParametricGeometry(	coonsCubicSurface(this.pointsCtr, this.m10Ctr, this.m01Ctr, this.m11Ctr, N_ctr, M_ctr), 
 																this.controlsParameters.slices, 
 																this.controlsParameters.stacks);
     }

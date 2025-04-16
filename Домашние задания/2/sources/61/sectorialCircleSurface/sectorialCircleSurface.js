@@ -1,94 +1,29 @@
-"use strict";
+// Imports.
+import {getShader} from './libs/prepShader.js';
+import {initShaders} from './libs/cuon-utils.js';
+import * as  dat from './libs/dat.gui.module.js';
+import {glMatrix, vec3, vec4, quat, mat4} from './libs/dist/esm/index.js';
+import {EventUtil} from './libs/EventUtil.js';
 
-// Vertex shader program
-const VSHADER_SOURCE =
-    'attribute vec4 a_Position;\n' +
-    'attribute float a_select;\n' +
-    'attribute vec4 a_normal;\n' +
-    'attribute mat4 a_transformMatrix;\n' +
-    'uniform mat4 u_mvpMatrix;\n' +
-    'uniform bool u_useTransformMatrix;\n' +
-    'uniform float u_pointSize;\n' +
-    'uniform float u_pointSizeSelect;\n' +
-    'uniform vec4 u_color;\n' +
-    'uniform vec4 u_colorSelect;\n' +
-    'varying vec4 v_color;\n' +
-    'varying vec4 v_normal;\n' +
-    'varying vec4 v_position;\n' +
-    'void main() {\n' +
-    '  if (u_useTransformMatrix)\n' +
-    '    gl_Position = u_mvpMatrix * a_transformMatrix * a_Position;\n' +
-    '  else\n' +
-    '    gl_Position = u_mvpMatrix * a_Position;\n' +
-    '  if (a_select != 0.0)\n' +
-    '  {\n' +
-    '    v_color = u_colorSelect;\n' +
-    '    gl_PointSize = u_pointSizeSelect;\n' +
-    '  }\n' +
-    '  else\n' +
-    '  {\n' +
-    '    v_color = u_color;\n' +
-    '    gl_PointSize = u_pointSize;\n' +
-    '  }\n' +
-    '  v_normal = a_normal;\n' +
-    '  v_position = a_Position;\n' +
-    '}\n';
-
-// Fragment shader program
-const FSHADER_SOURCE =
-    'precision mediump float;\n' +
-    'varying vec4 v_color;\n' +
-    'varying vec4 v_normal;\n' +
-    'varying vec4 v_position;\n' +
-    'uniform bool u_drawPolygon;\n' +
-    'uniform vec3 u_LightColor;\n' +     // Light color
-    'uniform vec4 u_LightPosition;\n' + // Position of the light source (in the world coordinate system)
-    'uniform vec3 u_AmbientLight;\n' +   // Color of an ambient light
-    'uniform vec3 u_colorAmbient;\n' +
-    'uniform vec3 u_colorSpec;\n' +
-    'uniform float u_shininess;\n' +
-    'void main() {\n' +
-    '  if (u_drawPolygon) {\n' +
-    // Make the length of the normal 1.0
-    '    vec3 normal =  normalize(gl_FrontFacing ? v_normal.xyz : -v_normal.xyz);\n' +
-    // Calculate the light direction and make it 1.0 in length
-    '    vec3 lightDirection = normalize(vec3(u_LightPosition - v_position));\n' +
-    // Dot product of the light direction and the orientation of a surface (the normal)
-    '    float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
-    // Calculate the color due to diffuse reflection
-    '    vec3 diffuse = u_LightColor * v_color.rgb * nDotL;\n' +
-    // Calculate the color due to ambient reflection
-    '    vec3 ambient = u_AmbientLight * u_colorAmbient;\n' +
-    '    vec3 r = reflect( -lightDirection, normal );\n' +
-    '    vec3 spec = vec3(0.0);\n' +
-    '    if( nDotL > 0.0 )\n' +
-    '      spec = u_LightColor * u_colorSpec *\n' +
-    '             pow( max( dot(r,lightDirection), 0.0 ), u_shininess );\n' +
-    '    \n' +
-    // Add the surface colors due to diffuse reflection and ambient reflection
-    '    gl_FragColor = vec4(spec + diffuse + ambient, v_color.a);\n' +
-    '  } else {\n' +
-    '    gl_FragColor = v_color;\n' +
-    '  }\n' +
-    '}\n';
-	
-const {mat2, mat3, mat4, vec2, vec3, vec4, quat} = glMatrix;
-
-function main() {
+async function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('webgl');
 	canvas.width  = document.documentElement.clientWidth;
 	canvas.height = document.documentElement.clientHeight;
 
     // Get the rendering context for WebGL
-    const gl = getWebGLContext(canvas);
+    const gl = canvas.getContext('webgl2');
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
     }
 
+    // Read shaders and create shader program executable.
+    const vertexShader = await getShader(gl, "vertex", "Shaders/vertexShader.glsl");
+    const fragmentShader = await getShader(gl, "fragment", "Shaders/fragmentShader.glsl");
+
     // Initialize shaders
-    if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    if (!initShaders(gl, vertexShader, fragmentShader)) {
         console.log('Failed to intialize shaders.');
         return;
     }
@@ -132,7 +67,7 @@ function main() {
 	guiCircleParams.add(Data.controlsParameters, 'y0', -4, 4, 1).onChange(function (e) { Data.calculateCtrPointsAndSurface(); });
 	guiCircleParams.add(Data.controlsParameters, 'radius', 1, 5, 1).onChange(function (e) { Data.calculateCtrPointsAndSurface(); });	
 	guiCtrPointsParams.add(Data.controlsParameters, 'showCtrPoints').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
-	guiCtrPointsParams.add(Data.controlsParameters, 'controlPolygon').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+	guiCtrPointsParams.add(Data.controlsParameters, 'controlNet').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'sectorialSurface').onChange(function (e) { Data.calculateAndDraw(); });
 	guiCountSurfacePoints.add(Data.controlsParameters, 'N', 2, 200, 1).onChange(function (e) { Data.calculateAndDraw(); });
 	guiCountSurfacePoints.add(Data.controlsParameters, 'M', 2, 10, 1).onChange(function (e) { Data.calculateAndDraw(); });
@@ -303,8 +238,8 @@ const Camera = {
     },
     getLookAt: function (zoom, x, y) {
         this.d = zoom;
-        const transform_y = glMatrix.glMatrix.toRadian(y / 16.0);
-        const transform_x = glMatrix.glMatrix.toRadian(x / 16.0);
+        const transform_y = glMatrix.toRadian(y / 16.0);
+        const transform_x = glMatrix.toRadian(x / 16.0);
 		this.initValues();
 		this.rotateVertical(transform_y);
 		this.rotateHorizontal(transform_x);
@@ -398,7 +333,7 @@ const Data = {
 	heighTip: 0.0,
 	controlsParameters: {
 		showCtrPoints: true,
-        controlPolygon: true,
+        controlNet: true,
 		sectorialSurface: false,
 		visualize: "points",
 		x0: 0,
@@ -894,8 +829,7 @@ const Data = {
             }
             this.setVertexBuffersAndDraw();
         }
-        else
-        	{
+        else {
                 for (let i = 0; i < this.N_ctr + 1; i++) {
                     this.pointsCtr[i].select = false;
 
@@ -1088,7 +1022,7 @@ const Data = {
         // Draw
         if (this.controlsParameters.showCtrPoints)
         	this.gl.drawArrays(this.gl.POINTS, 0, this.N_ctr + 1);
-        if (this.controlsParameters.controlPolygon) {
+        if (this.controlsParameters.controlNet) {
             this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBufferCtr);
             this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.indicesCtr, this.gl.DYNAMIC_DRAW);
 
@@ -1310,8 +1244,6 @@ const Data = {
 }
 
 function mousedown(ev, canvas) {
-    event = EventUtil.getEvent(event);
-
     const x = ev.clientX; // x coordinate of a mouse pointer
     const y = ev.clientY; // y coordinate of a mouse pointer
     const rect = ev.target.getBoundingClientRect();
@@ -1320,8 +1252,6 @@ function mousedown(ev, canvas) {
 }
 
 function mouseup(ev, canvas) {
-    event = EventUtil.getEvent(event);
-
     const x = ev.clientX; // x coordinate of a mouse pointer
     const y = ev.clientY; // y coordinate of a mouse pointer
     const rect = ev.target.getBoundingClientRect();
@@ -1336,3 +1266,5 @@ function mousemove(ev, canvas) {
 
     Data.mousemoveHandler(x - rect.left, canvas.height - (y - rect.top));
 }
+
+window.onload = main;
