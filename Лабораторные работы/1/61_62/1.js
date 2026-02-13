@@ -3,8 +3,8 @@
 // Imports.
 import {getShader} from './libs/prepShader.js';
 import {initShaders} from './libs/cuon-utils.js';
-import * as  dat from './libs/dat.gui.module.js';
-import {mat4} from './libs/dist/esm/index.js';
+import * as  dat from 'https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.module.js';
+import {mat4} from 'https://cdn.jsdelivr.net/npm/gl-matrix@3.4.4/+esm';
 import {EventUtil} from './libs/EventUtil.js';
 
 async function main() {
