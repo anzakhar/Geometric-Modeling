@@ -1,7 +1,7 @@
 // 1.js
 
 // Imports.
-import * as  dat from './libs/dat.gui.module.js';
+import * as  dat from 'https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.module.js';
 import {EventUtil} from './libs/EventUtil.js';
 
 async function main() {
