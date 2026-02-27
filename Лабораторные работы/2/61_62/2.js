@@ -79,6 +79,7 @@ async function main() {
 	guiSplineParams.add(Data.controlsParameters, 'paramCoords', ["uniform", "chordal", "centripetal"]).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "lines", "surface"]).onChange(function (e) { Data.setVertexBuffersAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'showNormals').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+	guiSplineParams.add(Data.controlsParameters, 'normalsLength', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
 
     // gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.DEPTH_TEST);
@@ -360,7 +361,8 @@ const Data = {
 		visualize: "points",
 		N: 8,
 		M: 8,
-		showNormals: false
+		showNormals: false,
+        normalsLength: 1
 	},
     init: function (gl, viewport) {
         this.gl = gl;
@@ -1270,6 +1272,7 @@ const Data = {
         //      //CALCULATE NORMAL VECTOR
         //      const normal = vec3.create();
 
+        //      vec3.scale(normal, normal, this.controlsParameters.normalsLength);
         //      this.normalsSpline[i][j][0] = normal[0];
         //      this.normalsSpline[i][j][1] = normal[1];
         //      this.normalsSpline[i][j][2] = normal[2];
