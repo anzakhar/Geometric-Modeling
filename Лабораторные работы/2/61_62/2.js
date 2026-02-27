@@ -1233,6 +1233,7 @@ const Data = {
 					// this.pointsCtr[i][j].u = u;
 					// this.pointsCtr[i][j].v = v;
 					// break;
+                // }
         	}
         }
 
@@ -1254,7 +1255,7 @@ const Data = {
         //      const y = ;
         //      const z = ;
         //      
-        //      pt = new Point(x, y, z);
+        //      const pt = new Point(x, y, z);
         //      this.pointsSpline[i][j] = pt;
 
         //      //CALCULATE TANGENT VECTORS
