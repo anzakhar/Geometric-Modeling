@@ -383,7 +383,7 @@ const Data = {
                 querySet.count * BigInt64Array.BYTES_PER_ELEMENT);
         }
 
-        // Create mappable buffer for dot product
+        // Create mappable buffer for spline points
         const mappableBuffer = device.createBuffer({
         // ОПРЕДЕЛИТЬ <SIZE_5>
         size: SIZE_5,
@@ -392,7 +392,7 @@ const Data = {
             GPUBufferUsage.MAP_READ
         });
 
-        // Encode copy command for dot product
+        // Encode copy command for spline points
         // ОПРЕДЕЛИТЬ <SIZE_6>
         encoder.copyBufferToBuffer(pointsSplineBuffer, 0, mappableBuffer, 0, SIZE_6);
 
