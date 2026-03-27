@@ -1,9 +1,0 @@
-body {overflow: hidden;}
-
-.canvas {
-	float: left
-}
-
-#mycanvas {
-    display: block;
-}
