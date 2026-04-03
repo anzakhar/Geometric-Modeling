@@ -1,0 +1,6 @@
+body {overflow: hidden;}
+
+#webgl {
+	float: left;
+    display: block;
+}
