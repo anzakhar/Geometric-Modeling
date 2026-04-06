@@ -3,6 +3,7 @@
 // Imports.
 import * as  dat from './libs/dat.gui.module.js';
 import {EventUtil} from './libs/EventUtil.js';
+import {getShader} from './libs/prepShader.js';
 
 async function main() {
     // Retrieve <canvas> element
@@ -12,6 +13,14 @@ async function main() {
 
     // Get the rendering context for 2DCG
     const ctx = canvas.getContext('2d');
+
+    // Read shaders.
+    const shaderCode = await getShader("shaders.wgsl");
+
+    // Check if WebGPU is supported
+    if (!navigator.gpu) {
+        throw new Error("WebGPU not supported");
+    }
 	
 	const gui = new dat.GUI();;
 	
@@ -23,10 +32,10 @@ async function main() {
 	guiCtrPointsParams.add(Data.controlsParameters, 'controlPolygon').onChange(function (e) { Data.draw(); });
 	
 	guiSplineParams.add(Data.controlsParameters, 'spline').onChange(function (e) { Data.calculateSplineAndDraw(); });
-	guiSplineParams.add(Data.controlsParameters, 'countSplinePoints', 1, 500, 1).onChange(function (e) { Data.calculateSplineAndDraw(); });
+	guiSplineParams.add(Data.controlsParameters, 'countSplinePoints', 1, 7e6, 1).onChange(function (e) { Data.calculateSplineAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "line"]).onChange(function (e) { Data.draw(); });
 
-    Data.init(canvas, ctx);
+    Data.init(canvas, ctx, shaderCode);
 	
 	guiCircleParams.add(Data.controlsParameters, 'circle').onChange(function (e) { Data.draw(); });
 }
@@ -51,6 +60,7 @@ const Data = {
 	pointsCircle: [],
 	canvas: null,
 	ctx: null,
+    shaderCode: null,
     controlsParameters: {
 		showCtrPoints: true,
         controlPolygon: false,
@@ -59,9 +69,10 @@ const Data = {
 		circle: true,
 		visualize: "points"
 	},
-    init: function (canvas, ctx) {
+    init: function (canvas, ctx, shaderCode) {
         this.canvas = canvas;
         this.ctx = ctx;
+        this.shaderCode = shaderCode;
 
         //ЗАДАТЬ КОЛИЧЕСТВО КОНТРОЛЬНЫХ ТОЧЕК
         this.countCtrPoints = 0;
@@ -152,9 +163,9 @@ const Data = {
 		this.setCtrPoints();
 		this.calculateSplineAndDraw();
     },
-    calculateSplineAndDraw: function () {
+    calculateSplineAndDraw: async function () {
 		if (this.controlsParameters.spline)
-			this.calculateSpline();
+			await this.calculateSpline();
         
         this.draw();
     },
@@ -164,13 +175,218 @@ const Data = {
 
         this.draw();
     },
-    calculateSpline: function () {
-        let pt;
+    calculateSpline: async function () {
+		let pt;
         let t, x, y, dt;
-
-
+		
         const N = this.controlsParameters.countSplinePoints;
+
+        const tgpu1 = Date.now();
+        // Access the GPUAdapter
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+            throw new Error("No GPUAdapter found");
+        }
+
+        // Check for timestamp support
+        const timeSupport = adapter.features.has("timestamp-query");
+
+        // Access the GPU
+        const device = timeSupport ?
+            await adapter.requestDevice({ 
+                requiredFeatures: ["timestamp-query"] }) :
+            await adapter.requestDevice();
+        if (!device) {
+            throw new Error("Failed to create a GPUDevice");
+        }
+
+        // Create the command encoder
+        const encoder = device.createCommandEncoder();
+        if (!encoder) {
+            throw new Error("Failed to create a GPUCommandEncoder");
+        }
+
+        // Create the query set
+        const querySet = timeSupport ?
+            device.createQuerySet({
+                label: "Query Set",
+                count: 2,
+                type: "timestamp"
+            }) : None;
+
+        // Create the query buffer
+        const queryBuffer = timeSupport ?
+            device.createBuffer({
+                size: querySet.count * BigInt64Array.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC
+            }) : None
+
+        // Create compute buffers
+        const pointsCtrBuffer = device.createBuffer({
+            mappedAtCreation: true,
+            // ЗАДАТЬ РАЗМЕР БУФЕРА КОНТРОЛЬНЫХ ТОЧЕК <SIZE_1>
+            size: 4 * SIZE_1,
+            usage:
+                GPUBufferUsage.STORAGE
+        });
+        const pointsCtrRange = pointsCtrBuffer.getMappedRange();
+
+        // Create compute buffers
+        const pointsSplineBuffer = device.createBuffer({
+            mappedAtCreation: true,
+            // ЗАДАТЬ РАЗМЕР БУФЕРА ТОЧЕК СПЛАЙНА <SIZE_2>
+            size: 4 * SIZE_2,
+            usage:
+                GPUBufferUsage.STORAGE |
+                GPUBufferUsage.COPY_SRC
+        });
+        const pointsSplineRange = pointsSplineBuffer.getMappedRange();
+
+        // Create the data arrays
+        // ЗАДАТЬ РАЗМЕР МАССИВА КОНТРОЛЬНЫХ ТОЧЕК <SIZE_3>
+        const pointsCtrArray = new Array(SIZE_3);
+        // ЗАДАТЬ РАЗМЕР МАССИВА ТОЧЕК СПЛАЙНА <SIZE_4>
+        const pointsSplineArray = new Array(SIZE_4);
+
+        // ЗАПОЛНИТЬ МАССИВ КОНТРОЛЬНЫХ ТОЧЕК pointsCtrArray
+        // pointsSplineArray[i] = this.pointsCtr[i].x;
+
+        pointsSplineArray.fill(0.0);
+
+        // Create arrays in buffer memory
+        new Float32Array(pointsCtrRange).set(pointsCtrArray);
+        new Float32Array(pointsSplineRange).set(pointsSplineArray);
+
+        // Unmap buffers
+        pointsCtrBuffer.unmap();
+        pointsSplineBuffer.unmap();
+
+        // Create the shader module
+        const shaderModule = device.createShaderModule({
+            label: "Shader module 0",
+            code: this.shaderCode
+        });
+
+        // Create the compute pass encoder
+        const computePass = timeSupport ?
+            encoder.beginComputePass({
+                timestampWrites: {
+                    querySet,
+                    beginningOfPassWriteIndex: 0,
+                    endOfPassWriteIndex: 1
+                }}) :
+            encoder.beginComputePass({});
+
+        // Define the compute procedure
+        const computePipeline = device.createComputePipeline({
+            label: "Compute Pipeline 0",
+            layout: "auto",
+            compute: {
+                module: shaderModule,
+                entryPoint: "computeMain",
+                constants: {
+                    group_size: 256,
+                    // ПЕРЕДАТЬ НЕОБХОДИМЫЕ КОНСТАНТЫ В ШЕЙДЕР
+                }
+            }
+        });
+
+        // Associate the pipeline with the compute pass encoder
+        computePass.setPipeline(computePipeline);
+
+        // Access the bind group layout
+        const bindGroupLayout = computePipeline.getBindGroupLayout(0);
+
+        // Create the bind group
+        let bindGroup = device.createBindGroup({
+            layout: bindGroupLayout,
+            entries: [{
+                binding: 0,
+                resource: { buffer: pointsCtrBuffer }
+            },
+            {
+                binding: 1,
+                resource: { buffer: pointsSplineBuffer }
+            }]
+        });
+        computePass.setBindGroup(0, bindGroup);
+
+        // Encode compute commands
+        // ЗАДАТЬ <SIZE_5>
+        computePass.dispatchWorkgroups(SIZE_5);
+
+        // Complete encoding compute commands
+        computePass.end();
+
+        // Create buffer to hold timestamp results
+        const tsBuffer = timeSupport ?
+            device.createBuffer({
+                size: querySet.count * BigInt64Array.BYTES_PER_ELEMENT,
+                usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+            }) : None;
+
+        if (timeSupport) {
+            
+            // Encode timestamp query command
+            encoder.resolveQuerySet(querySet,
+                0, querySet.count, queryBuffer, 0);
+            
+            // Encode command to copy timestamp data
+            encoder.copyBufferToBuffer(queryBuffer, 0, tsBuffer, 0, 
+                querySet.count * BigInt64Array.BYTES_PER_ELEMENT);
+        }
+
+        // Create mappable buffer for spline points
+        const mappableBuffer = device.createBuffer({
+        // ОПРЕДЕЛИТЬ <SIZE_5>
+        size: SIZE_5,
+        usage:
+            GPUBufferUsage.COPY_DST |
+            GPUBufferUsage.MAP_READ
+        });
+
+        // Encode copy command for spline points
+        // ОПРЕДЕЛИТЬ <SIZE_6>
+        encoder.copyBufferToBuffer(pointsSplineBuffer, 0, mappableBuffer, 0, SIZE_6);
+
+        // Submit the commands to the GPU
+        device.queue.submit([encoder.finish()]);
+
+        // Read data from compute buffer
+        await mappableBuffer.mapAsync(GPUMapMode.READ);
+        const procData = mappableBuffer.getMappedRange();
+        const resData = new Float32Array(procData);
+
         this.pointsSpline = new Array(N);
+
+        // СЧИТАТЬ РАССЧИТАННЫЕ ДАННЫЕ
+        // x = resData[0];
+        // y = resData[1];
+        // pt = new Point(x, y);
+        // this.pointsSpline[j]=pt;
+
+        const tgpu2 = Date.now();
+
+        // Destroy the mapping
+        mappableBuffer.unmap();
+
+        if (timeSupport) {
+            
+            // Read data from compute buffer
+            await tsBuffer.mapAsync(GPUMapMode.READ);
+            const mapData = tsBuffer.getMappedRange();
+            const tsData = new BigInt64Array(mapData);
+            
+            // Display output in page
+            const t1 = Number(tsData[0]) / 1000000.0;
+            const t2 = Number(tsData[1]) / 1000000.0;    
+            const t = t2 - t1;
+            const tsMsg = "Time: ".concat(t2.toString()).concat(" - ").concat(t1.toString()).concat(" = ");
+            console.log(tsMsg.concat(t.toString()));
+           
+            // Destroy the mapping
+            tsBuffer.unmap();
+        }
 
         // РАСЧЕТ КООРДИНАТ ТОЧКИ СПЛАЙНА
 
