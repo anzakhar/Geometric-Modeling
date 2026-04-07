@@ -8,3 +8,11 @@ override matrix_dim: u32;
 fn computeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
 
 }
+
+
+/*
+@compute @workgroup_size(matrix_dim, matrix_dim)
+fn computeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
+
+}
+*/
