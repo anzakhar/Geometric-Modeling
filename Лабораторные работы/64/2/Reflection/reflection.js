@@ -118,7 +118,7 @@ let bindGroup = device.createBindGroup({
 computePass.setBindGroup(0, bindGroup);
 
 // Encode compute commands
-computePass.dispatchWorkgroups(8);
+computePass.dispatchWorkgroups(1);
 
 // Complete encoding compute commands
 computePass.end();

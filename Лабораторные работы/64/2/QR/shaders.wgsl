@@ -20,19 +20,17 @@ fn computeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
         
     /* Load first column into workgroup memory */
     u_vec[gid.x] = a_mat[gid.x * matrix_dim];
-    storageBarrier();
+    workgroupBarrier();
     
     /* Find length of first column and u vector */
     if (gid.x == 0) {
-        for (i = 1; i < matrix_dim; i++) {
+        for (i = 0; i < matrix_dim; i++) {
             vec_length += u_vec[i] * u_vec[i];
         }
         u_length_squared = vec_length;
-        vec_length = sqrt(vec_length + u_vec[0] * u_vec[0]);
+        vec_length = sqrt(vec_length);
         a_mat[0] = vec_length;
         u_vec[0] -= vec_length;
-        u_length_squared += u_vec[0] * u_vec[0];
-
     }
     else {
         a_mat[gid.x * matrix_dim] = 0.0;
@@ -68,13 +66,12 @@ fn computeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
         /* Find length of A column and u vector */
         if(gid.x == col) {
             vec_length = 0.0;
-            for (i = col + 1; i < matrix_dim; i++) {
+            for (i = col; i < matrix_dim; i++) {
                 vec_length += u_vec[i] * u_vec[i];
             }
             u_length_squared = vec_length;
-            vec_length = sqrt(vec_length + u_vec[col] * u_vec[col]);
+            vec_length = sqrt(vec_length);
             u_vec[col] -= vec_length;
-            u_length_squared += u_vec[col] * u_vec[col];
             a_mat[col * matrix_dim + col] = vec_length;
         }
         else if(gid.x > col) {
