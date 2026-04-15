@@ -66,6 +66,7 @@ async function main() {
   guiCountSurfacePoints.add(Data.controlsParameters, 'M', 2, 10, 1).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'visualize', ["points", "lines", "surface"]).onChange(function (e) { Data.setVertexBuffersAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'showNormals').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSurfaceParams.add(Data.controlsParameters, 'normalsLength', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
    
     // gl.depthFunc(gl.LEQUAL);
   gl.enable(gl.DEPTH_TEST);
@@ -258,8 +259,9 @@ const Data = {
 		visualize: "points",
 		N: 50,
 		M: 2,
-		showNormals: false
-	},
+		showNormals: false,
+	    normalsLength: 0.07
+},
     init: function (gl, viewport) {
         this.gl = gl;
         
@@ -1094,10 +1096,10 @@ const Data = {
         //        //CALCULATE NORMAL VECTOR
         //        const normal = vec3.create();
                   
-				// let k = 0.07;
-                // this.normalsSurface[i][j][0] = k * normal[0];
-                // this.normalsSurface[i][j][1] = k * normal[1];
-                // this.normalsSurface[i][j][2] = k * normal[2];
+        //      vec3.scale(normal, normal, this.controlsParameters.normalsLength);
+                // this.normalsSurface[i][j][0] = normal[0];
+                // this.normalsSurface[i][j][1] = normal[1];
+                // this.normalsSurface[i][j][2] = normal[2];
         //    }
         //}
 
