@@ -260,7 +260,7 @@ const Data = {
 		N: 50,
 		M: 2,
 		showNormals: false,
-	    normalsLength: 0.07
+	    normalsLength: 1
 },
     init: function (gl, viewport) {
         this.gl = gl;
