@@ -1,96 +1,29 @@
-// 2.js
+// Imports.
+import {getShader} from './libs/prepShader.js';
+import {initShaders} from './libs/cuon-utils.js';
+import * as  dat from './libs/dat.gui.module.js';
+import {glMatrix, vec3, vec4, quat, mat4} from './libs/dist/esm/index.js';
+import {EventUtil} from './libs/EventUtil.js';
 
-"use strict";
-
-// Vertex shader program
-const VSHADER_SOURCE =
-    'attribute vec4 a_Position;\n' +
-    'attribute float a_select;\n' +
-    'attribute vec4 a_normal;\n' +
-    'attribute mat4 a_transformMatrix;\n' +
-    'uniform mat4 u_mvpMatrix;\n' +
-    'uniform bool u_useTransformMatrix;\n' +
-    'uniform float u_pointSize;\n' +
-    'uniform float u_pointSizeSelect;\n' +
-    'uniform vec4 u_color;\n' +
-    'uniform vec4 u_colorSelect;\n' +
-    'varying vec4 v_color;\n' +
-    'varying vec4 v_normal;\n' +
-    'varying vec4 v_position;\n' +
-    'void main() {\n' +
-    '  if (u_useTransformMatrix)\n' +
-    '    gl_Position = u_mvpMatrix * a_transformMatrix * a_Position;\n' +
-    '  else\n' +
-    '    gl_Position = u_mvpMatrix * a_Position;\n' +
-    '  if (a_select != 0.0)\n' +
-    '  {\n' +
-    '    v_color = u_colorSelect;\n' +
-    '    gl_PointSize = u_pointSizeSelect;\n' +
-    '  }\n' +
-    '  else\n' +
-    '  {\n' +
-    '    v_color = u_color;\n' +
-    '    gl_PointSize = u_pointSize;\n' +
-    '  }\n' +
-    '  v_normal = a_normal;\n' +
-    '  v_position = a_Position;\n' +
-    '}\n';
-
-// Fragment shader program
-const FSHADER_SOURCE =
-    'precision mediump float;\n' +
-    'varying vec4 v_color;\n' +
-    'varying vec4 v_normal;\n' +
-    'varying vec4 v_position;\n' +
-    'uniform bool u_drawPolygon;\n' +
-    'uniform vec3 u_LightColor;\n' +     // Light color
-    'uniform vec4 u_LightPosition;\n' + // Position of the light source (in the world coordinate system)
-    'uniform vec3 u_AmbientLight;\n' +   // Color of an ambient light
-    'uniform vec3 u_colorAmbient;\n' +
-    'uniform vec3 u_colorSpec;\n' +
-    'uniform float u_shininess;\n' +
-    'void main() {\n' +
-    '  if (u_drawPolygon) {\n' +
-    // Make the length of the normal 1.0
-    '    vec3 normal =  normalize(gl_FrontFacing ? v_normal.xyz : -v_normal.xyz);\n' +
-    // Calculate the light direction and make it 1.0 in length
-    '    vec3 lightDirection = normalize(vec3(u_LightPosition - v_position));\n' +
-    // Dot product of the light direction and the orientation of a surface (the normal)
-    '    float nDotL = max(dot(lightDirection, normal), 0.0);\n' +
-    // Calculate the color due to diffuse reflection
-    '    vec3 diffuse = u_LightColor * v_color.rgb * nDotL;\n' +
-    // Calculate the color due to ambient reflection
-    '    vec3 ambient = u_AmbientLight * u_colorAmbient;\n' +
-    '    vec3 r = reflect( -lightDirection, normal );\n' +
-    '    vec3 spec = vec3(0.0);\n' +
-    '    if( nDotL > 0.0 )\n' +
-    '      spec = u_LightColor * u_colorSpec *\n' +
-    '             pow( max( dot(r,lightDirection), 0.0 ), u_shininess );\n' +
-    '    \n' +
-    // Add the surface colors due to diffuse reflection and ambient reflection
-    '    gl_FragColor = vec4(spec + diffuse + ambient, v_color.a);\n' +
-    '  } else {\n' +
-    '    gl_FragColor = v_color;\n' +
-    '  }\n' +
-    '}\n';
-	
-const {mat2, mat3, mat4, vec2, vec3, vec4, quat} = glMatrix;
-
-function main() {
+async function main() {
     // Retrieve <canvas> element
     const canvas = document.getElementById('webgl');
 	canvas.width  = document.documentElement.clientWidth;
 	canvas.height = document.documentElement.clientHeight;
 
     // Get the rendering context for WebGL
-    const gl = getWebGLContext(canvas);
+    const gl = canvas.getContext('webgl2');
     if (!gl) {
         console.log('Failed to get the rendering context for WebGL');
         return;
     }
 
+    // Read shaders and create shader program executable.
+    const vertexShader = await getShader(gl, "vertex", "Shaders/vertexShader.glsl");
+    const fragmentShader = await getShader(gl, "fragment", "Shaders/fragmentShader.glsl");
+
     // Initialize shaders
-    if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+    if (!initShaders(gl, vertexShader, fragmentShader)) {
         console.log('Failed to intialize shaders.');
         return;
     }
@@ -98,6 +31,8 @@ function main() {
     const viewport = [0, 0, canvas.width, canvas.height];
     gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	
+	Camera.aspect = canvas.width / canvas.height;
+
 	const gui = new dat.GUI();
 	
 	const guiCtrPointsParams = gui.addFolder('Control point parameters');
@@ -142,7 +77,12 @@ function main() {
 	guiCountSurfacePoints.add(Data.controlsParameters, 'M', 2, 10, 1).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'paramCoords', ["uniform", "chordal", "centripetal"]).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'visualize', ["points", "lines", "surface"]).onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSurfaceParams.add(Data.controlsParameters, 'showTangents1').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSurfaceParams.add(Data.controlsParameters, 'tangents1Length', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
+    guiSurfaceParams.add(Data.controlsParameters, 'showTangents2').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSurfaceParams.add(Data.controlsParameters, 'tangents2Length', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'showNormals').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+	guiSurfaceParams.add(Data.controlsParameters, 'normalsLength', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
 
     // gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.DEPTH_TEST);
@@ -265,6 +205,7 @@ const Camera = {
     d_near: 0.0,
     d_far: 0.0,
 	eye: vec4.create(),
+	aspect: 1.0,
 	initValues: function () {
 		const D = this.d + this.d0;
 		
@@ -314,8 +255,8 @@ const Camera = {
     },
     getLookAt: function (zoom, x, y) {
         this.d = zoom;
-        const transform_y = glMatrix.glMatrix.toRadian(y / 16.0);
-        const transform_x = glMatrix.glMatrix.toRadian(x / 16.0);
+        const transform_y = glMatrix.toRadian(y / 16.0);
+        const transform_x = glMatrix.toRadian(x / 16.0);
 		this.initValues();
 		this.rotateVertical(transform_y);
 		this.rotateHorizontal(transform_x);
@@ -325,9 +266,9 @@ const Camera = {
             this.ref, 
             this.up);
     },
-    getProjMatrix: function () {
-        return mat4.ortho(mat4.create(),
-            this.xw_min, this.xw_max, this.yw_min, this.yw_max, this.d_near, this.d_far);
+    getProjMatrix: function() {
+        return mat4.ortho(mat4.create(), 
+            this.xw_min*this.aspect, this.xw_max*this.aspect, this.yw_min, this.yw_max, this.d_near, this.d_far);
     },
     getAxesPoints: function () {
     		return [0.5 * this.xw_min, 0, 0,
@@ -353,7 +294,11 @@ const Data = {
     pointsSurface: [],
     indicesSurfaceLines: [],
     indicesSurfaceTriangles: [],
-    indicesNormalVectorTip: [],
+	indicesTangent1VectorTip: [],
+	indicesTangent2VectorTip: [],
+	indicesNormalVectorTip: [],
+    tangents1Surface: [],
+    tangents2Surface: [],
     normalsSurface: [],
     countAttribData: 3 + 1 + 16, //x,y,z,sel
     verticesAxes: {},
@@ -363,6 +308,10 @@ const Data = {
     verticesSurface: {},
     verticesNormalVector: {},
 	verticesNormalVectorTip: {},
+    verticesTangent1Vector: {},
+	verticesTangent1VectorTip: {},
+    verticesTangent2Vector: {},
+	verticesTangent2VectorTip: {},
     FSIZE: 0,
     ISIZE: 0,
     gl: null,
@@ -435,7 +384,12 @@ const Data = {
 		visualize: "points",
 		N: 50,
 		M: 2,
-		showNormals: false
+		showNormals: false,
+	    normalsLength: 1,
+        showTangents1: false,
+	    tangents1Length: 1,
+        showTangents2: false,
+	    tangents2Length: 1
 	},
     init: function (gl, viewport) {
         this.gl = gl;
@@ -524,6 +478,42 @@ const Data = {
         this.indexBufferNormalVectorTip = this.gl.createBuffer();
         if (!this.indexBufferNormalVectorTip) {
             console.log('Failed to create the index object for normal vector tips');
+            return -1;
+        }
+
+        this.vertexBufferTangent1Vector = this.gl.createBuffer();
+		if (!this.vertexBufferTangent1Vector) {
+			console.log('Failed to create the buffer object for tangent1 vector');
+			return -1;
+        }
+		
+		this.vertexBufferTangent1VectorTip = this.gl.createBuffer();
+        if (!this.vertexBufferTangent1VectorTip) {
+            console.log('Failed to create the buffer object for tangent1 vector tips');
+            return -1;
+        }
+
+        this.indexBufferTangent1VectorTip = this.gl.createBuffer();
+        if (!this.indexBufferTangent1VectorTip) {
+            console.log('Failed to create the index object for tangent1 vector tips');
+            return -1;
+        }
+
+        this.vertexBufferTangent2Vector = this.gl.createBuffer();
+		if (!this.vertexBufferTangent2Vector) {
+			console.log('Failed to create the buffer object for tangent2 vector');
+			return -1;
+        }
+		
+		this.vertexBufferTangent2VectorTip = this.gl.createBuffer();
+        if (!this.vertexBufferTangent2VectorTip) {
+            console.log('Failed to create the buffer object for tangent2 vector tips');
+            return -1;
+        }
+
+        this.indexBufferTangent2VectorTip = this.gl.createBuffer();
+        if (!this.indexBufferTangent2VectorTip) {
+            console.log('Failed to create the index object for tangent2 vector tips');
             return -1;
         }
 
@@ -810,6 +800,14 @@ const Data = {
                this.verticesVector10TipCtr = new Float32Array(count);
                verticesVectorTipCtr = this.verticesVector10TipCtr;
                break;
+      case "tangents1":
+                this.verticesTangent1VectorTip = new Float32Array(count);
+                verticesVectorTipCtr = this.verticesTangent1VectorTip;
+                break;
+            case "tangents2":
+                this.verticesTangent2VectorTip = new Float32Array(count);
+                verticesVectorTipCtr = this.verticesTangent2VectorTip;
+                break;
             case "normals":
                 this.verticesNormalVectorTip = new Float32Array(count);
                 verticesVectorTipCtr = this.verticesNormalVectorTip;
@@ -830,7 +828,7 @@ const Data = {
 						
 						if (  ((orient == "10") && ((p == 0) || (p == n - 1))) ||
                             ((orient == "axes") && ((p == 0) && (q == 0))) ||
-                             (orient == "normals")
+                            ((orient == "tangents1") || (orient == "tangents2") || (orient == "normals"))
                                 ) {
                             x = r * Math.cos(phi);
                             y = r * Math.sin(phi);
@@ -879,6 +877,14 @@ const Data = {
                this.indicesVector10TipCtr = new Uint16Array(m_countTipIndices);
                indicesVectorCtr = this.indicesVector10TipCtr;
                break;
+      case "tangents1":
+                this.indicesTangent1VectorTip = new Uint16Array(m_countTipIndices);
+                indicesVectorCtr = this.indicesTangent1VectorTip;
+                break;
+            case "tangents2":
+                this.indicesTangent2VectorTip = new Uint16Array(m_countTipIndices);
+                indicesVectorCtr = this.indicesTangent2VectorTip;
+                break;
             case "normals":
                 this.indicesNormalVectorTip = new Uint16Array(m_countTipIndices);
                 indicesVectorCtr = this.indicesNormalVectorTip;
@@ -931,6 +937,12 @@ const Data = {
 			pointsVectorCtr = this.pointsVector10Ctr;
 			verticesVectorTip = this.verticesVector10TipCtr;
 			break;
+    case "tangents1":
+        verticesVectorTip = this.verticesTangent1VectorTip;
+        break;
+    case "tangents2":
+        verticesVectorTip = this.verticesTangent2VectorTip;
+        break;
 		case "normals":
 			verticesVectorTip = this.verticesNormalVectorTip;
 			break;
@@ -1291,7 +1303,7 @@ const Data = {
         const axes_scale = 0.1;
         const half_axes_scale_length = 1.5 * (this.verticesAxes[17] - this.verticesAxes[14]) * axes_scale / 2;
         const scaleMatrix = mat4.fromScaling(mat4.create(), [axes_scale, axes_scale, axes_scale]);
-        translateMatrix = mat4.fromTranslation(mat4.create(), vec3.fromValues(this.verticesAxes[3] - half_axes_scale_length, //x_max - half_axes_scale_length
+        translateMatrix = mat4.fromTranslation(mat4.create(), vec3.fromValues(this.verticesAxes[3]*Camera.aspect - half_axes_scale_length, //x_max - half_axes_scale_length
 																				-this.verticesAxes[10] + half_axes_scale_length, //-y_max + half_axes_scale_length 
 																				this.verticesAxes[17] - half_axes_scale_length)); //z_max - half_axes_scale_length 
 		    transformMatrix = mat4.mul(mat4.create(), scaleMatrix, this.world);
@@ -1522,9 +1534,114 @@ const Data = {
                 this.gl.uniform4f(this.u_color, 0.5075, 0.5075, 0.5075, 1.0);
                 this.gl.drawElements(this.gl.TRIANGLES, 6 * (N - 1) * (M - 1), this.gl.UNSIGNED_SHORT, 0);
 				break;
+            }
+
+			if (this.controlsParameters.showTangents1) {
+                this.gl.uniform1f(this.u_useTransformMatrix, false);
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent1Vector);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent1Vector, this.gl.DYNAMIC_DRAW);
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, 0, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				this.gl.drawArrays(this.gl.LINES, 0, 2 * N * M);
+			
+				this.gl.uniform1f(this.u_useTransformMatrix, true);
+				const countIndicesOneTip = (this.nLatitudes - 1) * this.nLongitudes * 2 * 3;
+
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent1VectorTip);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent1VectorTip, this.gl.DYNAMIC_DRAW);
+				this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBufferTangent1VectorTip);
+				this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.indicesTangent1VectorTip, this.gl.DYNAMIC_DRAW);
+
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				// Assign the buffer object to a_transformMatrix variable
+				this.gl.vertexAttribPointer(this.a_transformMatrix, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * 4);
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 1, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (4 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 2, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (8 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 3, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (12 + 4));
+
+				// Enable the assignment to a_transformMatrix variable
+				this.gl.enableVertexAttribArray(this.a_transformMatrix);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 1);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 2);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 3);
+
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+
+				this.gl.drawElements(this.gl.TRIANGLES, N * M * countIndicesOneTip, this.gl.UNSIGNED_SHORT, 0);
+			}
+
+			if (this.controlsParameters.showTangents2) {
+                this.gl.uniform1f(this.u_useTransformMatrix, false);
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent2Vector);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent2Vector, this.gl.DYNAMIC_DRAW);
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, 0, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				this.gl.drawArrays(this.gl.LINES, 0, 2 * N * M);
+			
+				this.gl.uniform1f(this.u_useTransformMatrix, true);
+				const countIndicesOneTip = (this.nLatitudes - 1) * this.nLongitudes * 2 * 3;
+
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent2VectorTip);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent2VectorTip, this.gl.DYNAMIC_DRAW);
+				this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBufferTangent2VectorTip);
+				this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.indicesTangent2VectorTip, this.gl.DYNAMIC_DRAW);
+
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				// Assign the buffer object to a_transformMatrix variable
+				this.gl.vertexAttribPointer(this.a_transformMatrix, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * 4);
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 1, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (4 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 2, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (8 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 3, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (12 + 4));
+
+				// Enable the assignment to a_transformMatrix variable
+				this.gl.enableVertexAttribArray(this.a_transformMatrix);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 1);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 2);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 3);
+
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+
+				this.gl.drawElements(this.gl.TRIANGLES, N * M * countIndicesOneTip, this.gl.UNSIGNED_SHORT, 0);
 			}
 			
 			if (this.controlsParameters.showNormals) {
+                this.gl.uniform1f(this.u_useTransformMatrix, false);
 				// Bind the buffer object to target
 				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferNormalVector);
 				// Write date into the buffer object
@@ -1624,11 +1741,17 @@ const Data = {
         }
 
         this.pointsSurface = new Array(N);
+        this.tangents1Surface = new Array(N);
+        this.tangents2Surface = new Array(N);
         this.normalsSurface = new Array(N);
         for (i = 0; i < N; i++) {
             this.pointsSurface[i] = new Array(M);
+            this.tangents1Surface[i] = new Array(M);
+            this.tangents2Surface[i] = new Array(M);
             this.normalsSurface[i] = new Array(M);
             for (j = 0; j < M; j++)
+                this.tangents1Surface[i][j] = new Array(3);
+                this.tangents2Surface[i][j] = new Array(3);
                 this.normalsSurface[i][j] = new Array(3);
         }
 
@@ -1659,15 +1782,39 @@ const Data = {
         //      //CALCULATE NORMAL VECTOR
         //      const normal = vec3.create();
 
+        //        vec3.normalize(normal, normal);
+        //        vec3.scale(normal, normal, this.controlsParameters.normalsLength);
+        
+        //        vec3.normalize(pt_u, pt_u);
+        //        vec3.scale(pt_u, pt_u, this.controlsParameters.tangents1Length);
+
+        //        this.tangents1Surface[i][j][0] = pt_u[0];
+        //        this.tangents1Surface[i][j][1] = pt_u[1];
+        //        this.tangents1Surface[i][j][2] = pt_u[2];
+
+        //        vec3.normalize(pt_v, pt_v);
+        //        vec3.scale(pt_v, pt_v, this.controlsParameters.tangents2Length);
+
+        //        this.tangents2Surface[i][j][0] = pt_v[0];
+        //        this.tangents2Surface[i][j][1] = pt_v[1];
+        //        this.tangents2Surface[i][j][2] = pt_v[2];
+                
+                
         //      this.normalsSurface[i][j][0] = normal[0];
         //      this.normalsSurface[i][j][1] = normal[1];
         //      this.normalsSurface[i][j][2] = normal[2];
         //	}
         //}
 
+    this.create_coord_tip("tangents1", this.heighTip, N, M);
+		this.create_coord_tip("tangents2", this.heighTip, N, M);
 		this.create_coord_tip("normals", this.heighTip, N, M);
+        this.create_indexes_tip("tangents1", N, M);
+        this.create_indexes_tip("tangents2", N, M);
         this.create_indexes_tip("normals", N, M);
         this.verticesSurface = new Float32Array(N * M * 6);
+        this.verticesTangent1Vector = new Float32Array(N * M * 6);
+        this.verticesTangent2Vector = new Float32Array(N * M * 6);
         this.verticesNormalVector = new Float32Array(N * M * 6);
         for (i = 0; i < N; i++)
             for (j = 0; j < M; j++) {
@@ -1678,7 +1825,28 @@ const Data = {
                 this.verticesSurface[offset * 6 + 3] = this.normalsSurface[i][j][0];
                 this.verticesSurface[offset * 6 + 4] = this.normalsSurface[i][j][1];
                 this.verticesSurface[offset * 6 + 5] = this.normalsSurface[i][j][2];
+				this.verticesTangent1Vector[2 * offset * 3    ] = this.pointsSurface[i][j].x;
+				this.verticesTangent1Vector[2 * offset * 3 + 1] = this.pointsSurface[i][j].y;
+				this.verticesTangent1Vector[2 * offset * 3 + 2] = this.pointsSurface[i][j].z;
+				this.verticesTangent1Vector[(2 * offset + 1) * 3    ] = this.pointsSurface[i][j].x + this.tangents1Surface[i][j][0];
+				this.verticesTangent1Vector[(2 * offset + 1) * 3 + 1] = this.pointsSurface[i][j].y + this.tangents1Surface[i][j][1];
+				this.verticesTangent1Vector[(2 * offset + 1) * 3 + 2] = this.pointsSurface[i][j].z + this.tangents1Surface[i][j][2];
 				
+				this.setVector(this.verticesTangent1Vector[2 * offset * 3    ], this.verticesTangent1Vector[2 * offset * 3 + 1], this.verticesTangent1Vector[2 * offset * 3 + 2],
+                         this.verticesTangent1Vector[(2 * offset + 1) * 3    ], this.verticesTangent1Vector[(2 * offset + 1) * 3 + 1], this.verticesTangent1Vector[(2 * offset + 1) * 3 + 2],
+                         "tangents1", true, i, j);
+                         
+
+				this.verticesTangent2Vector[2 * offset * 3    ] = this.pointsSurface[i][j].x;
+				this.verticesTangent2Vector[2 * offset * 3 + 1] = this.pointsSurface[i][j].y;
+				this.verticesTangent2Vector[2 * offset * 3 + 2] = this.pointsSurface[i][j].z;
+				this.verticesTangent2Vector[(2 * offset + 1) * 3    ] = this.pointsSurface[i][j].x + this.tangents2Surface[i][j][0];
+				this.verticesTangent2Vector[(2 * offset + 1) * 3 + 1] = this.pointsSurface[i][j].y + this.tangents2Surface[i][j][1];
+				this.verticesTangent2Vector[(2 * offset + 1) * 3 + 2] = this.pointsSurface[i][j].z + this.tangents2Surface[i][j][2];
+				
+				this.setVector(this.verticesTangent2Vector[2 * offset * 3    ], this.verticesTangent2Vector[2 * offset * 3 + 1], this.verticesTangent2Vector[2 * offset * 3 + 2],
+                         this.verticesTangent2Vector[(2 * offset + 1) * 3    ], this.verticesTangent2Vector[(2 * offset + 1) * 3 + 1], this.verticesTangent2Vector[(2 * offset + 1) * 3 + 2],
+                         "tangents2", true, i, j);
 				this.verticesNormalVector[2 * offset * 3    ] = this.pointsSurface[i][j].x;
 				this.verticesNormalVector[2 * offset * 3 + 1] = this.pointsSurface[i][j].y;
 				this.verticesNormalVector[2 * offset * 3 + 2] = this.pointsSurface[i][j].z;
@@ -1719,3 +1887,5 @@ function mousemove(ev, canvas) {
 
     Data.mousemoveHandler(x - rect.left, canvas.height - (y - rect.top));
 }
+
+window.onload = main;

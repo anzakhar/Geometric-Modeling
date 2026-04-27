@@ -79,7 +79,6 @@ async function main() {
 	guiSurfaceParams.add(Data.controlsParameters, 'showNormals').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
 	guiSurfaceParams.add(Data.controlsParameters, 'normalsLength', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
 
-    // gl.depthFunc(gl.LEQUAL);
     gl.enable(gl.DEPTH_TEST);
 
     // Specify the color for clearing <canvas>
@@ -1145,7 +1144,7 @@ const Data = {
 
             this.gl.uniform4f(this.u_color, 1.0, 0.0, 0.0, 1.0);
             this.gl.uniform1f(this.u_pointSize, 5.0);
-            //points
+
 			switch (this.controlsParameters.visualize) {
             case "points":
                 this.gl.drawArrays(this.gl.POINTS, 0, N * M);
@@ -1415,9 +1414,9 @@ const Data = {
         //        this.tangents2Surface[i][j][2] = pt_v[2];
                 
                 
-        //      this.normalsSpline[i][j][0] = normal[0];
-        //      this.normalsSpline[i][j][1] = normal[1];
-        //      this.normalsSpline[i][j][2] = normal[2];
+        //      this.normalsSurface[i][j][0] = normal[0];
+        //      this.normalsSurface[i][j][1] = normal[1];
+        //      this.normalsSurface[i][j][2] = normal[2];
         //	}
         //}
 
@@ -1469,7 +1468,7 @@ const Data = {
 				this.verticesNormalVector[(2 * offset + 1) * 3 + 1] = this.pointsSurface[i][j].y + this.normalsSurface[i][j][1];
 				this.verticesNormalVector[(2 * offset + 1) * 3 + 2] = this.pointsSurface[i][j].z + this.normalsSurface[i][j][2];
 				
-				this.setVector(this.verticesNormalVector[2 * offset * 3], this.verticesNormalVector[2 * offset * 3 + 1],       this.verticesNormalVector[2 * offset * 3 + 2],
+				this.setVector("normals", this.verticesNormalVector[2 * offset * 3], this.verticesNormalVector[2 * offset * 3 + 1],       this.verticesNormalVector[2 * offset * 3 + 2],
                          this.verticesNormalVector[(2 * offset + 1) * 3], this.verticesNormalVector[(2 * offset + 1) * 3 + 1], this.verticesNormalVector[(2 * offset + 1) * 3 + 2],
                          i, j);
             }

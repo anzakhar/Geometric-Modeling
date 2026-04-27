@@ -158,10 +158,10 @@ class Point {
         this.winy = 0.0;
     }
     setRect() {
-        this.left = this.winx - 5;
-        this.right = this.winx + 5;
-        this.bottom = this.winy - 5;
-        this.up = this.winy + 5;
+        this.left = this.winx - 10;
+        this.right = this.winx + 10;
+        this.bottom = this.winy - 10;
+        this.up = this.winy + 10;
     }
     calculateWindowCoordinates(mvpMatrix, viewport) {
         const worldCoord = vec4.fromValues(this.x, this.y, this.z, 1.0);
@@ -257,9 +257,6 @@ const Camera = {
 		this.initValues();
 		this.rotateVertical(transform_y);
 		this.rotateHorizontal(transform_x);
-		//console.log("x0 = ", this.x0, "  y0 = ", this.y0, "  z0 = ", this.z0);
-		//console.log("x_ref = ", this.x_ref, "  y_ref = ", this.y_ref, "  z_ref = ", this.z_ref);
-		//console.log("Vx = ", this.Vx, "  Vy = ", this.Vy, "  Vz = ", this.Vz);
 
         return mat4.lookAt(mat4.create(), 
             this.eye, 

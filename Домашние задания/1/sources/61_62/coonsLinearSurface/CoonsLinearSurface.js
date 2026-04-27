@@ -31,6 +31,8 @@ async function main() {
     const viewport = [0, 0, canvas.width, canvas.height];
     gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 	
+	Camera.aspect = canvas.width / canvas.height;
+
 	const gui = new dat.GUI();
 	
 	const guiCtrPointsParams = gui.addFolder('Control point parameters');
@@ -76,6 +78,10 @@ async function main() {
 	guiCountSplinePoints.add(Data.controlsParameters, 'M', 2, 50, 1).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'paramCoords', ["uniform", "chordal", "centripetal"]).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'visualize', ["points", "lines", "surface"]).onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSplineParams.add(Data.controlsParameters, 'showTangents1').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSplineParams.add(Data.controlsParameters, 'tangents1Length', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
+    guiSplineParams.add(Data.controlsParameters, 'showTangents2').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
+    guiSplineParams.add(Data.controlsParameters, 'tangents2Length', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
 	guiSplineParams.add(Data.controlsParameters, 'showNormals').onChange(function (e) { Data.setVertexBuffersAndDraw(); });
     guiSplineParams.add(Data.controlsParameters, 'normalsLength', -5, 5).onChange(function (e) { Data.calculateAndDraw(); });
 
@@ -194,7 +200,8 @@ const Camera = {
     d_near: 0.0,
     d_far: 0.0,
 	eye: vec4.create(),
-	initValues: function (angle) {
+	aspect: 1.0,
+	initValues: function () {
 		const D = this.d + this.d0;
 		
 		this.eye = vec4.fromValues(0.0, 0.0, D, 0.0);
@@ -254,9 +261,9 @@ const Camera = {
             this.ref, 
             this.up);
     },
-    getProjMatrix: function () {
-        return mat4.ortho(mat4.create(),
-            this.xw_min, this.xw_max, this.yw_min, this.yw_max, this.d_near, this.d_far);
+    getProjMatrix: function() {
+        return mat4.ortho(mat4.create(), 
+            this.xw_min*this.aspect, this.xw_max*this.aspect, this.yw_min, this.yw_max, this.d_near, this.d_far);
     },
     getAxesPoints: function () {
     		return [0.5 * this.xw_min, 0, 0,
@@ -279,7 +286,11 @@ const Data = {
     pointsSpline: [],
     indicesSplineLines: [],
     indicesSplineSurface: [],
+	indicesTangent1VectorTip: [],
+	indicesTangent2VectorTip: [],
     indicesNormalVectorTip: [],
+    tangents1Spline: [],
+    tangents2Spline: [],
     normalsSpline: [],
     countAttribData: 3 + 1 + 16, //x,y,z,sel
     verticesAxes: {},
@@ -287,6 +298,10 @@ const Data = {
     verticesSpline: {},
     verticesNormalVector: {},
 	verticesNormalVectorTip: {},
+    verticesTangent1Vector: {},
+	verticesTangent1VectorTip: {},
+    verticesTangent2Vector: {},
+	verticesTangent2VectorTip: {},
     FSIZE: 0,
     ISIZE: 0,
     gl: null,
@@ -354,7 +369,11 @@ const Data = {
 		N: 8,
 		M: 8,
 		showNormals: false,
-        normalsLength: 1
+	    normalsLength: 1,
+        showTangents1: false,
+	    tangents1Length: 1,
+        showTangents2: false,
+	    tangents2Length: 1
 	},
     init: function (gl, viewport) {
         this.gl = gl;
@@ -424,6 +443,42 @@ const Data = {
         this.indexBufferNormalVectorTip = this.gl.createBuffer();
         if (!this.indexBufferNormalVectorTip) {
             console.log('Failed to create the index object for normal vector tips');
+            return -1;
+        }
+
+        this.vertexBufferTangent1Vector = this.gl.createBuffer();
+		if (!this.vertexBufferTangent1Vector) {
+			console.log('Failed to create the buffer object for tangent1 vector');
+			return -1;
+        }
+		
+		this.vertexBufferTangent1VectorTip = this.gl.createBuffer();
+        if (!this.vertexBufferTangent1VectorTip) {
+            console.log('Failed to create the buffer object for tangent1 vector tips');
+            return -1;
+        }
+
+        this.indexBufferTangent1VectorTip = this.gl.createBuffer();
+        if (!this.indexBufferTangent1VectorTip) {
+            console.log('Failed to create the index object for tangent1 vector tips');
+            return -1;
+        }
+
+        this.vertexBufferTangent2Vector = this.gl.createBuffer();
+		if (!this.vertexBufferTangent2Vector) {
+			console.log('Failed to create the buffer object for tangent2 vector');
+			return -1;
+        }
+		
+		this.vertexBufferTangent2VectorTip = this.gl.createBuffer();
+        if (!this.vertexBufferTangent2VectorTip) {
+            console.log('Failed to create the buffer object for tangent2 vector tips');
+            return -1;
+        }
+
+        this.indexBufferTangent2VectorTip = this.gl.createBuffer();
+        if (!this.indexBufferTangent2VectorTip) {
+            console.log('Failed to create the index object for tangent2 vector tips');
             return -1;
         }
 
@@ -643,6 +698,14 @@ const Data = {
 		count = n * m * countParametersOneTip;
 		
 		switch (orient) {
+      case "tangents1":
+                this.verticesTangent1VectorTip = new Float32Array(count);
+                verticesVectorTipCtr = this.verticesTangent1VectorTip;
+                break;
+            case "tangents2":
+                this.verticesTangent2VectorTip = new Float32Array(count);
+                verticesVectorTipCtr = this.verticesTangent2VectorTip;
+                break;
             case "normals":
                 this.verticesNormalVectorTip = new Float32Array(count);
                 verticesVectorTipCtr = this.verticesNormalVectorTip;
@@ -698,6 +761,14 @@ const Data = {
         m_countTipIndices = n * m * countIndicesOneTip;
         
 		switch (orient) {
+      case "tangents1":
+                this.indicesTangent1VectorTip = new Uint16Array(m_countTipIndices);
+                indicesVectorCtr = this.indicesTangent1VectorTip;
+                break;
+            case "tangents2":
+                this.indicesTangent2VectorTip = new Uint16Array(m_countTipIndices);
+                indicesVectorCtr = this.indicesTangent2VectorTip;
+                break;
             case "normals":
                 this.indicesNormalVectorTip = new Uint16Array(m_countTipIndices);
                 indicesVectorCtr = this.indicesNormalVectorTip;
@@ -736,7 +807,7 @@ const Data = {
 					}
 			}
     },
-	setVector: function (x1, y1, z1, x2, y2, z2, i, j) {
+	setVector: function (x1, y1, z1, x2, y2, z2, orient, i, j) {
         let pt;
         let ptm;
 
@@ -744,7 +815,17 @@ const Data = {
 
         const number = i * this.controlsParameters.M + j;
 		
-		verticesVectorTip = this.verticesNormalVectorTip;
+		switch (orient) {
+    case "tangents1":
+        verticesVectorTip = this.verticesTangent1VectorTip;
+        break;
+    case "tangents2":
+        verticesVectorTip = this.verticesTangent2VectorTip;
+        break;
+		case "normals":
+			verticesVectorTip = this.verticesNormalVectorTip;
+			break;
+		}
 
         const vec = vec3.normalize(vec3.create(), vec3.fromValues(x2 - x1, y2 - y1, z2 - z1));
         const q = quat.rotationTo(quat.create(), [0.0, 0.0, 1.0], vec);
@@ -974,9 +1055,9 @@ const Data = {
         const axes_scale = 0.1;
         const half_axes_scale_length = 1.5 * (this.verticesAxes[17] - this.verticesAxes[14]) * axes_scale / 2;
         const scaleMatrix = mat4.fromScaling(mat4.create(), [axes_scale, axes_scale, axes_scale]);
-        translateMatrix = mat4.fromTranslation(mat4.create(), vec3.fromValues(this.verticesAxes[3] - half_axes_scale_length, //x_max - half_axes_scale_length
-        																																			-this.verticesAxes[10] + half_axes_scale_length, //-y_max + half_axes_scale_length 
-        																																			this.verticesAxes[17] - half_axes_scale_length)); //z_max - half_axes_scale_length 
+        translateMatrix = mat4.fromTranslation(mat4.create(), vec3.fromValues(this.verticesAxes[3]*Camera.aspect - half_axes_scale_length, //x_max - half_axes_scale_length
+																				-this.verticesAxes[10] + half_axes_scale_length, //-y_max + half_axes_scale_length 
+																				this.verticesAxes[17] - half_axes_scale_length)); //z_max - half_axes_scale_length 
 		    transformMatrix = mat4.mul(mat4.create(), scaleMatrix, this.world);
 		    transformMatrix = mat4.mul(mat4.create(), this.cam, transformMatrix);
 		    transformMatrix = mat4.mul(mat4.create(), translateMatrix, transformMatrix);
@@ -1164,9 +1245,114 @@ const Data = {
                 // this.gl.disable(this.gl.BLEND);
                 // this.gl.depthMask(true);
 				break;
+            }
+
+			if (this.controlsParameters.showTangents1) {
+                this.gl.uniform1f(this.u_useTransformMatrix, false);
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent1Vector);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent1Vector, this.gl.DYNAMIC_DRAW);
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, 0, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				this.gl.drawArrays(this.gl.LINES, 0, 2 * N * M);
+			
+				this.gl.uniform1f(this.u_useTransformMatrix, true);
+				const countIndicesOneTip = (this.nLatitudes - 1) * this.nLongitudes * 2 * 3;
+
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent1VectorTip);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent1VectorTip, this.gl.DYNAMIC_DRAW);
+				this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBufferTangent1VectorTip);
+				this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.indicesTangent1VectorTip, this.gl.DYNAMIC_DRAW);
+
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				// Assign the buffer object to a_transformMatrix variable
+				this.gl.vertexAttribPointer(this.a_transformMatrix, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * 4);
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 1, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (4 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 2, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (8 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 3, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (12 + 4));
+
+				// Enable the assignment to a_transformMatrix variable
+				this.gl.enableVertexAttribArray(this.a_transformMatrix);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 1);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 2);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 3);
+
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+
+				this.gl.drawElements(this.gl.TRIANGLES, N * M * countIndicesOneTip, this.gl.UNSIGNED_SHORT, 0);
+			}
+
+			if (this.controlsParameters.showTangents2) {
+                this.gl.uniform1f(this.u_useTransformMatrix, false);
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent2Vector);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent2Vector, this.gl.DYNAMIC_DRAW);
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, 0, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				this.gl.drawArrays(this.gl.LINES, 0, 2 * N * M);
+			
+				this.gl.uniform1f(this.u_useTransformMatrix, true);
+				const countIndicesOneTip = (this.nLatitudes - 1) * this.nLongitudes * 2 * 3;
+
+				// Bind the buffer object to target
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferTangent2VectorTip);
+				// Write date into the buffer object
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, this.verticesTangent2VectorTip, this.gl.DYNAMIC_DRAW);
+				this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.indexBufferTangent2VectorTip);
+				this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, this.indicesTangent2VectorTip, this.gl.DYNAMIC_DRAW);
+
+				// Assign the buffer object to a_Position variable
+				this.gl.vertexAttribPointer(this.a_Position, 3, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, 0);
+				// Enable the assignment to a_Position variable
+				this.gl.enableVertexAttribArray(this.a_Position);
+        // Disable the assignment to a_select variable
+				this.gl.disableVertexAttribArray(this.a_select);
+				// Disable the assignment to a_normal variable
+				this.gl.disableVertexAttribArray(this.a_normal);
+				// Assign the buffer object to a_transformMatrix variable
+				this.gl.vertexAttribPointer(this.a_transformMatrix, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * 4);
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 1, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (4 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 2, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (8 + 4));
+				this.gl.vertexAttribPointer(this.a_transformMatrix + 3, 4, this.gl.FLOAT, false, this.FSIZE * this.countAttribData, this.FSIZE * (12 + 4));
+
+				// Enable the assignment to a_transformMatrix variable
+				this.gl.enableVertexAttribArray(this.a_transformMatrix);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 1);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 2);
+				this.gl.enableVertexAttribArray(this.a_transformMatrix + 3);
+
+				this.gl.uniform4f(this.u_color, 0.0, 0.0, 0.0, 1.0);
+
+				this.gl.drawElements(this.gl.TRIANGLES, N * M * countIndicesOneTip, this.gl.UNSIGNED_SHORT, 0);
 			}
 			
 			if (this.controlsParameters.showNormals) {
+                this.gl.uniform1f(this.u_useTransformMatrix, false);
 				// Bind the buffer object to target
 				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBufferNormalVector);
 				// Write date into the buffer object
@@ -1261,11 +1447,17 @@ const Data = {
         }
 
         this.pointsSpline = new Array(N);
+        this.tangents1Spline = new Array(N);
+        this.tangents2Spline = new Array(N);
         this.normalsSpline = new Array(N);
         for (i = 0; i < N; i++) {
             this.pointsSpline[i] = new Array(M);
+            this.tangents1Spline[i] = new Array(M);
+            this.tangents2Spline[i] = new Array(M);
             this.normalsSpline[i] = new Array(M);
             for (j = 0; j < M; j++)
+                this.tangents1Spline[i][j] = new Array(3);
+                this.tangents2Spline[i][j] = new Array(3);
                 this.normalsSpline[i][j] = new Array(3);
         }
 
@@ -1296,16 +1488,39 @@ const Data = {
         //      //CALCULATE NORMAL VECTOR
         //      const normal = vec3.create();
 
-        //      vec3.scale(normal, normal, this.controlsParameters.normalsLength);
+        //        vec3.normalize(normal, normal);
+        //        vec3.scale(normal, normal, this.controlsParameters.normalsLength);
+        
+        //        vec3.normalize(pt_u, pt_u);
+        //        vec3.scale(pt_u, pt_u, this.controlsParameters.tangents1Length);
+
+        //        this.tangents1Spline[i][j][0] = pt_u[0];
+        //        this.tangents1Spline[i][j][1] = pt_u[1];
+        //        this.tangents1Spline[i][j][2] = pt_u[2];
+
+        //        vec3.normalize(pt_v, pt_v);
+        //        vec3.scale(pt_v, pt_v, this.controlsParameters.tangents2Length);
+
+        //        this.tangents2Spline[i][j][0] = pt_v[0];
+        //        this.tangents2Spline[i][j][1] = pt_v[1];
+        //        this.tangents2Spline[i][j][2] = pt_v[2];
+                
+                
         //      this.normalsSpline[i][j][0] = normal[0];
         //      this.normalsSpline[i][j][1] = normal[1];
         //      this.normalsSpline[i][j][2] = normal[2];
         //	}
         //}
 
+    this.create_coord_tip("tangents1", this.heighTip, N, M);
+		this.create_coord_tip("tangents2", this.heighTip, N, M);
 		this.create_coord_tip("normals", this.heighTip, N, M);
+        this.create_indexes_tip("tangents1", N, M);
+        this.create_indexes_tip("tangents2", N, M);
         this.create_indexes_tip("normals", N, M);
         this.verticesSpline = new Float32Array(N * M * 6);
+        this.verticesTangent1Vector = new Float32Array(N * M * 6);
+        this.verticesTangent2Vector = new Float32Array(N * M * 6);
         this.verticesNormalVector = new Float32Array(N * M * 6);
         for (i = 0; i < N; i++)
             for (j = 0; j < M; j++) {
@@ -1316,7 +1531,28 @@ const Data = {
                 this.verticesSpline[offset * 6 + 3] = this.normalsSpline[i][j][0];
                 this.verticesSpline[offset * 6 + 4] = this.normalsSpline[i][j][1];
                 this.verticesSpline[offset * 6 + 5] = this.normalsSpline[i][j][2];
+				this.verticesTangent1Vector[2 * offset * 3    ] = this.pointsSpline[i][j].x;
+				this.verticesTangent1Vector[2 * offset * 3 + 1] = this.pointsSpline[i][j].y;
+				this.verticesTangent1Vector[2 * offset * 3 + 2] = this.pointsSpline[i][j].z;
+				this.verticesTangent1Vector[(2 * offset + 1) * 3    ] = this.pointsSpline[i][j].x + this.tangents1Spline[i][j][0];
+				this.verticesTangent1Vector[(2 * offset + 1) * 3 + 1] = this.pointsSpline[i][j].y + this.tangents1Spline[i][j][1];
+				this.verticesTangent1Vector[(2 * offset + 1) * 3 + 2] = this.pointsSpline[i][j].z + this.tangents1Spline[i][j][2];
 				
+				this.setVector(this.verticesTangent1Vector[2 * offset * 3    ], this.verticesTangent1Vector[2 * offset * 3 + 1], this.verticesTangent1Vector[2 * offset * 3 + 2],
+                         this.verticesTangent1Vector[(2 * offset + 1) * 3    ], this.verticesTangent1Vector[(2 * offset + 1) * 3 + 1], this.verticesTangent1Vector[(2 * offset + 1) * 3 + 2],
+                         "tangents1", i, j);
+                         
+
+				this.verticesTangent2Vector[2 * offset * 3    ] = this.pointsSpline[i][j].x;
+				this.verticesTangent2Vector[2 * offset * 3 + 1] = this.pointsSpline[i][j].y;
+				this.verticesTangent2Vector[2 * offset * 3 + 2] = this.pointsSpline[i][j].z;
+				this.verticesTangent2Vector[(2 * offset + 1) * 3    ] = this.pointsSpline[i][j].x + this.tangents2Spline[i][j][0];
+				this.verticesTangent2Vector[(2 * offset + 1) * 3 + 1] = this.pointsSpline[i][j].y + this.tangents2Spline[i][j][1];
+				this.verticesTangent2Vector[(2 * offset + 1) * 3 + 2] = this.pointsSpline[i][j].z + this.tangents2Spline[i][j][2];
+				
+				this.setVector(this.verticesTangent2Vector[2 * offset * 3    ], this.verticesTangent2Vector[2 * offset * 3 + 1], this.verticesTangent2Vector[2 * offset * 3 + 2],
+                         this.verticesTangent2Vector[(2 * offset + 1) * 3    ], this.verticesTangent2Vector[(2 * offset + 1) * 3 + 1], this.verticesTangent2Vector[(2 * offset + 1) * 3 + 2],
+                         "tangents2", i, j);
 				this.verticesNormalVector[2 * offset * 3    ] = this.pointsSpline[i][j].x;
 				this.verticesNormalVector[2 * offset * 3 + 1] = this.pointsSpline[i][j].y;
 				this.verticesNormalVector[2 * offset * 3 + 2] = this.pointsSpline[i][j].z;
@@ -1326,7 +1562,7 @@ const Data = {
 				
 				this.setVector(this.verticesNormalVector[2 * offset * 3    ], this.verticesNormalVector[2 * offset * 3 + 1],       this.verticesNormalVector[2 * offset * 3 + 2],
                          this.verticesNormalVector[(2 * offset + 1) * 3    ], this.verticesNormalVector[(2 * offset + 1) * 3 + 1], this.verticesNormalVector[(2 * offset + 1) * 3 + 2],
-                         i, j);
+                         "normals", i, j);
             }
 
         this.createIndicesSplineLines(N, M);
