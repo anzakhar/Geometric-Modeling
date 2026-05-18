@@ -42,15 +42,17 @@ const batchSize = 16;
 const nodesPerLayer = 4;
 const groupSize = batchSize * nodesPerLayer;
 const numInputs = 4;
-const layer1Size = 4;
-const layer2Size = 4;
-const layer3Size = 3;
+const layer1Size = nodesPerLayer;
+const layer2Size = nodesPerLayer;
+let   layer3Size = 3;
 const numTrainPoints = Math.trunc(trainData.length/numInputs);
 const numTestPoints = Math.trunc(testData.length/numInputs);
-const numWeights = layer1Size * numInputs + layer2Size * layer1Size + layer3Size * layer2Size;
-const numBias = layer1Size + layer2Size + layer3Size;
+let numWeights = layer1Size * numInputs + layer2Size * layer1Size + layer3Size * layer2Size;
+let numBias = layer1Size + layer2Size + layer3Size;
 const numEpochs = 150;
 const eta = 0.001;
+
+var weight_addr; 
 
 // Store training data
 const trainDataBuffer = device.createBuffer({
@@ -162,7 +164,8 @@ const bindGroupLayout = device.createBindGroupLayout({
         binding: 5,
         visibility: GPUShaderStage.COMPUTE,
         buffer: { type: "storage" }
-    }]
+    }
+]
 });
 
 // Create the bind group
@@ -191,7 +194,8 @@ let bindGroup = device.createBindGroup({
     {
         binding: 5,
         resource: { buffer: testResultBuffer }
-    }]
+    }
+]
 });
 
 // Create the pipeline layout
@@ -224,6 +228,7 @@ const computePipeline = device.createComputePipeline({
             l1_size: layer1Size,
             l2_size: layer2Size,
             l3_size: layer3Size,
+            nodes_per_layer: nodesPerLayer,
             num_weights: numWeights,
             num_bias: numBias,
             num_epochs: numEpochs,
@@ -258,6 +263,164 @@ await mappableBuffer.mapAsync(GPUMapMode.READ);
 const procData = mappableBuffer.getMappedRange();
 const floatData = new Float32Array(procData);
 
+// Create the command encoder
+const encoder2 = device.createCommandEncoder();
+if (!encoder2) {
+    throw new Error("Failed to create a GPUCommandEncoder2");
+}
+
+//numWeights = ;
+//numBias = ;
+
+// Store node weights
+const weightBuffer2 = device.createBuffer({
+    mappedAtCreation: true,
+    size: numWeights * 4,
+    usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_SRC
+});
+
+// Generate and store weights
+const weightData2 = weightData; //new Array(numWeights);
+// for (let i = 0; i < numWeights; i+= 2) {
+//     let x1 = Math.random();
+//     let x2 = Math.random();
+//     weightData2[i] = Math.sqrt(-2.0 * Math.log(x1)) * Math.cos(2 * Math.PI * x2) * sigma;
+//     weightData2[i + 1] = Math.sqrt(-2.0 * Math.log(x1)) * Math.sin(2 * Math.PI * x2) * sigma;
+// }
+
+var weight_addr2; 
+
+// for (var node_id = 0; node_id < nodesPerLayer; node_id++) {
+
+//     weight_addr =  node_id * numInputs;
+//     weight_addr2 = node_id * numInputs;
+
+//     for (var i = 0; i < numInputs; i++) {
+//         weightData2[weight_addr + i] = weightData[weight_addr + i];
+//     }
+
+//     weight_addr +=  layer1Size * numInputs;
+//     weight_addr2 += layer1Size * numInputs;
+
+//     for (var i = 0; i < layer1Size; i++) {
+//         weightData2[weight_addr + i] = weightData[weight_addr + i];
+//     }
+
+//     weight_addr += layer2Size * layer1Size;
+
+//     weight_addr +=  layer3Size * layer2Size;
+//     weight_addr2 += layer3Size * layer2Size;
+
+//     if(node_id < layer4Size) {
+//         for (var i = 0; i < layer3Size; i++) {
+//             weightData2[weight_addr + i] = weightData[weight_addr2 + i];
+//         }
+//     }
+// }
+const weightRange2 = weightBuffer2.getMappedRange();
+new Float32Array(weightRange2).set(weightData2);
+weightBuffer2.unmap();
+
+// Store bias weights
+let biasWeightData2 =  new Array(numBias).fill(0.0);
+const biasWeightBuffer2 = device.createBuffer({
+    mappedAtCreation: true,
+    size: numBias * 4,
+    usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_SRC
+});
+const biasWeightRange2 = biasWeightBuffer2.getMappedRange();
+new Float32Array(biasWeightRange2).set(biasWeightData2);
+biasWeightBuffer2.unmap();
+
+// Create the bind group
+let bindGroup2 = device.createBindGroup({
+    layout: bindGroupLayout,
+    entries: [{
+        binding: 0,
+        resource: { buffer: trainDataBuffer }
+    },
+    {
+        binding: 1,
+        resource: { buffer: trainResultBuffer }
+    },
+    {
+        binding: 2,
+        resource: { buffer: weightBuffer2 }
+    },
+    {
+        binding: 3,
+        resource: { buffer: biasWeightBuffer2 }
+    },
+    {
+        binding: 4,
+        resource: { buffer: testDataBuffer }
+    },
+    {
+        binding: 5,
+        resource: { buffer: testResultBuffer }
+    }
+]
+});
+
+// Create the compute pass encoder
+const computePass2 = encoder2.beginComputePass({
+    label: "Compute Pass 1"
+});
+
+// Define the compute procedure
+const computePipeline2 = device.createComputePipeline({
+    layout: pipelineLayout,
+    compute: {
+        module: computeLossModule,
+        entryPoint: "computeMain",
+        constants: {
+            group_size: groupSize,
+            batch_size: batchSize,
+            num_train_points: numTrainPoints,
+            num_test_points: numTestPoints,
+            num_inputs: numInputs,
+            l1_size: layer1Size,
+            l2_size: layer2Size,
+            l3_size: layer3Size,
+            nodes_per_layer: nodesPerLayer,
+            num_weights: numWeights,
+            num_bias: numBias,
+            num_epochs: numEpochs,
+            eta: eta
+        }
+    }
+});
+
+computePass2.setPipeline(computePipeline2);
+computePass2.setBindGroup(0, bindGroup2);
+
+// Encode compute commands
+computePass2.dispatchWorkgroups(1);
+
+// Complete encoding compute commands
+computePass2.end();
+
+// Create mappable buffer
+const mappableBuffer2 = device.createBuffer({
+    size: numTestPoints * 3 * 4,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+});
+
+// Encode copy command
+encoder2.copyBufferToBuffer(testResultBuffer, 0, mappableBuffer2, 0, numTestPoints * 3 * 4);
+
+// Submit the commands to the GPU
+device.queue.submit([encoder2.finish()]);
+
+// Read data from compute buffer
+await mappableBuffer2.mapAsync(GPUMapMode.READ);
+const procData2 = mappableBuffer2.getMappedRange();
+const floatData2 = new Float32Array(procData2);
+
 let msg = "";
 for (let test = 0; test < numTestPoints; test++) {
     
@@ -281,17 +444,43 @@ for (let test = 0; test < numTestPoints; test++) {
     for (let i = 0; i < 3; i++) {
         msg = msg.concat(parseFloat(floatData[test * 3 + i]).toFixed(3)).concat(" ");
         if(floatData[test * 3 + i] > max_value) {
-            max_value = testResults[test * 3 + i];
+            max_value = floatData[test * 3 + i];
             max_computed_index = i;
+        }
+    }
+    msg = msg.concat("<br />");
+
+    // Actual values2
+    max_value = -999.0;
+    let max_computed_index2 = -1;
+    msg = msg.concat("Computed outputs2:&nbsp;&nbsp;");
+    for (let i = 0; i < 3; i++) {
+        msg = msg.concat(parseFloat(floatData2[test * 3 + i]).toFixed(3)).concat(" ");
+        if(floatData2[test * 3 + i] > max_value) {
+            max_value = floatData2[test * 3 + i];
+            max_computed_index2 = i;
         }
     }
     msg = msg.concat("<br />");
     
     // Display result
     if(max_actual_index == max_computed_index) {
-        msg = msg.concat("Result: SUCCESS");
+        msg = msg.concat("Result: SUCCESS&nbsp;&nbsp;&nbsp;&nbsp;");
     } else {
-        msg = msg.concat("Result: FAILURE");
+        msg = msg.concat("Result: FAILURE&nbsp;&nbsp;&nbsp;&nbsp;");
+    }
+    if(max_actual_index == max_computed_index2) {
+        msg = msg.concat("SUCCESS&nbsp;&nbsp;&nbsp;&nbsp;");
+    } else {
+        msg = msg.concat("FAILURE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;");
+    }
+    if((max_actual_index == max_computed_index) && (max_actual_index != max_computed_index2)) {
+        msg = msg.concat("WORSE");
+    } else {
+        if((max_actual_index != max_computed_index) && (max_actual_index == max_computed_index2)) {
+            msg = msg.concat("BETTER");
+        } else
+            msg = msg.concat("SAME");
     }
     msg = msg.concat("<br /><br />");
 }

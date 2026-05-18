@@ -24,6 +24,7 @@ override num_inputs: u32;
 override l1_size: u32;
 override l2_size: u32;
 override l3_size: u32;
+override nodes_per_layer: u32;
 override num_weights: u32;
 override num_bias: u32;
 override num_epochs: u32;
@@ -39,8 +40,8 @@ var<workgroup> J_bias: array<f32, num_bias * batch_size>;
 fn computeMain(@builtin(local_invocation_id) id : vec3<u32>) {
 
     var num_iterations = num_train_points/batch_size;
-    var batch_id = id.x / num_inputs;
-    var node_id = id.x % num_inputs;
+    var batch_id = id.x / nodes_per_layer;
+    var node_id = id.x % nodes_per_layer;
     var l1_id = batch_id * l1_size;
     var l2_id = batch_id * l2_size;
     var l3_id = batch_id * l3_size;
@@ -235,3 +236,8 @@ fn computeMain(@builtin(local_invocation_id) id : vec3<u32>) {
         storageBarrier();        
     }
 }
+
+// @compute @workgroup_size(group_size)
+// fn computeMain2(@builtin(local_invocation_id) id : vec3<u32>) {
+
+// }
